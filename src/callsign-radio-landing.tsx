@@ -147,6 +147,8 @@ export type CallsignRadioLandingProps = {
   onSubscribe?: (email: string) => unknown
   /** Interface strings ("On air now", "Listen back", "Give"...). Pass any subset. */
   labels?: CrLabelsInput
+  /** "lower" sets the call sign in the lowercase glyphs (a, b, c, d, e, h, i, l, n, o, p, r, s, t, u and "."); others stay capitals. */
+  mastheadCase?: "upper" | "lower"
   /** Hero height. A definite length, never a percentage. */
   height?: string
   className?: string
@@ -371,6 +373,27 @@ const GLYPHS: { [ch: string]: GDef } = {
   "$": { w: 100, l: [go([100, 30], [15, 30], [15, 100], [85, 100], [85, 170], [0, 170]), go([50, 0], [50, 200])] },
   "£": { w: 100, l: [go([86, 50], [86, 15], [30, 15], [30, 185, 0]), go([0, 185], [100, 185]), go([0, 104], [70, 104])] },
   " ": { w: 44, l: [] },
+
+  // Lowercase, for a masthead set with mastheadCase="lower" only (keys start with "_", so
+  // ordinary text never reaches them). Same 200-unit box and 30-unit stroke: ascenders from 0,
+  // x-height from 40, baseline at 160, descenders to 200. Only the letters drawn here go
+  // lowercase; any other character falls back to the capital.
+  _a: { w: 100, l: [gz([15, 55], [85, 55], [85, 145], [15, 145]), go([85, 40], [85, 160])] },
+  _b: { w: 100, l: [go([15, 0], [15, 160]), gz([15, 55], [85, 55], [85, 145], [15, 145])] },
+  _c: { w: 96, l: [go([85, 82], [85, 55], [15, 55], [15, 145], [85, 145], [85, 118])] },
+  _d: { w: 100, l: [go([85, 0], [85, 160]), gz([15, 55], [85, 55], [85, 145], [15, 145])] },
+  _e: { w: 100, l: [go([15, 100], [85, 100], [85, 55], [15, 55], [15, 145], [92, 145])] },
+  _h: { w: 100, l: [go([15, 0], [15, 160]), go([15, 55], [85, 55], [85, 160])] },
+  _i: { w: 30, l: [go([15, 40], [15, 160]), go([15, 0], [15, 26])], n: 1 },
+  _l: { w: 30, l: [go([15, 0], [15, 160])], n: 1 },
+  _n: { w: 100, l: [go([15, 40], [15, 160]), go([15, 55], [85, 55], [85, 160])] },
+  _o: { w: 100, l: [gz([15, 55], [85, 55], [85, 145], [15, 145])] },
+  _p: { w: 100, l: [go([15, 40], [15, 200]), gz([15, 55], [85, 55], [85, 145], [15, 145])] },
+  _r: { w: 80, l: [go([15, 40], [15, 160]), go([15, 55], [80, 55])] },
+  _s: { w: 100, l: [go([94, 55], [15, 55], [15, 100], [85, 100], [85, 145], [6, 145])] },
+  _t: { w: 84, l: [go([36, 8], [36, 145], [84, 145]), go([0, 55], [80, 55])] },
+  _u: { w: 100, l: [go([15, 40], [15, 145], [85, 145]), go([85, 40], [85, 160])] },
+  "_.": { w: 50, l: [go([10, 145], [40, 145])], n: 1 },
 }
 
 const fx = (n: number) => String(Math.round(n * 100) / 100)
@@ -402,7 +425,11 @@ function gLinePath(line: GLine, dx: number) {
   return d + "L" + fx(p[n - 1][0] + dx) + " " + fx(p[n - 1][1])
 }
 
-function gNorm(ch: string) {
+function gNorm(ch: string, lower?: boolean) {
+  if (lower) {
+    const l = "_" + ch.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+    if (GLYPHS[l]) return l
+  }
   const c = ch.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase()
   if (c === "'" || c === "’") return ""
   if (c === "&") return "+"
@@ -410,13 +437,13 @@ function gNorm(ch: string) {
 }
 
 function glyphPath(ch: string, dx: number) {
-  const g = GLYPHS[gNorm(ch) || " "] || GLYPHS[" "]
+  const g = GLYPHS[ch] || GLYPHS[gNorm(ch) || " "] || GLYPHS[" "]
   return g.l.map((l) => gLinePath(l, dx)).join("")
 }
 
 /** Lays a string out in the face: each glyph's x and width, and the total width, in units (cap height 200). */
-function layoutText(text: string) {
-  const chars = Array.from(text).map(gNorm).filter((c) => c !== "")
+function layoutText(text: string, lower?: boolean) {
+  const chars = Array.from(text).map((c) => gNorm(c, lower)).filter((c) => c !== "")
   const items: { ch: string; x: number; w: number }[] = []
   let x = 0
   chars.forEach((ch, i) => {
@@ -740,10 +767,10 @@ function useReveal(root: { current: HTMLElement | null }, reduced: boolean) {
 
 /* ---------- the display face ---------- */
 
-type GlyphsProps = { text: string; wrap?: boolean; knock?: boolean; fit?: boolean; className?: string }
+type GlyphsProps = { text: string; wrap?: boolean; knock?: boolean; fit?: boolean; lower?: boolean; className?: string }
 
 /** Text set in the face as SVG strokes. Height is 1em per line; `wrap` breaks lines to the parent's width; `fit` scales to the width instead. */
-function Glyphs({ text, wrap, knock, fit, className }: GlyphsProps) {
+function Glyphs({ text, wrap, knock, fit, lower, className }: GlyphsProps) {
   const id = "g" + React.useId().replace(/[^a-zA-Z0-9]/g, "")
   const ref = React.useRef(null as SVGSVGElement | null)
   const [maxW, setMaxW] = React.useState(0)
@@ -765,7 +792,7 @@ function Glyphs({ text, wrap, knock, fit, className }: GlyphsProps) {
   const rows = wrap && maxW > 0 ? wrapText(text, maxW) : [text]
   const lead = knock ? 40 : 46
   const pad = knock ? 26 : 0
-  const laid = rows.map((r) => layoutText(r))
+  const laid = rows.map((r) => layoutText(r, lower))
   const W = Math.max(1, ...laid.map((l) => l.width))
   const Hh = rows.length * GH + (rows.length - 1) * lead
   const vb = [-pad, -pad, W + pad * 2, Hh + pad * 2].map(fx).join(" ")
@@ -809,13 +836,15 @@ type MeterWordProps = {
   seg: number
   gap: number
   register: (fn: MeterFn) => () => void
+  /** Set the word in the lowercase glyphs. */
+  lower?: boolean
   className?: string
 }
 
 /** The call sign drawn as a two-channel segment meter. Levels arrive through `register`, never through React state. */
-function MeterWord({ word, redAt, vertical, seg, gap, register, className }: MeterWordProps) {
+function MeterWord({ word, redAt, vertical, seg, gap, register, lower, className }: MeterWordProps) {
   const id = "m" + React.useId().replace(/[^a-zA-Z0-9]/g, "")
-  const lay = layoutText(word)
+  const lay = layoutText(word, lower)
   const W = Math.max(1, lay.width)
   const d = lay.items.map((it) => glyphPath(it.ch, it.x)).join("")
   const segs = meterSegments(lay.items, seg, gap)
@@ -1499,6 +1528,7 @@ export default function CallsignRadioLanding({
   onSupport,
   onSubscribe,
   labels,
+  mastheadCase = "upper",
   height = "100svh",
   className,
 }: CallsignRadioLandingProps) {
@@ -1523,7 +1553,9 @@ export default function CallsignRadioLanding({
   // space, still takes the red zone, and is never printed as "FM".
   const markOnly = !!ST.frequency && !/[0-9a-z]/i.test(ST.frequency)
   const dial = ST.frequency && !markOnly ? ST.frequency : ""
-  const masthead = (ST.callsign + (ST.frequency ? (markOnly ? "" : " ") + ST.frequency : "")).toUpperCase()
+  const lower = mastheadCase === "lower"
+  const mastRaw = ST.callsign + (ST.frequency ? (markOnly ? "" : " ") + ST.frequency : "")
+  const masthead = lower ? mastRaw : mastRaw.toUpperCase()
   const redAt = ST.frequency ? layoutText(ST.callsign).items.length + (markOnly ? 0 : 1) : -1
 
   useReveal(rootRef, reduced)
@@ -1924,13 +1956,13 @@ export default function CallsignRadioLanding({
         <a className="cr-brand" href="#listen" onClick={go("#listen")} aria-label={ST.name + ", back to the top"}>
           {markOnly ? (
             <span className="cr-brand-m">
-              <Glyphs text={ST.callsign} />
+              <Glyphs text={ST.callsign} lower={lower} />
               <span style={{ color: "var(--cr-tally)" }}>
-                <Glyphs text={ST.frequency} />
+                <Glyphs text={ST.frequency} lower={lower} />
               </span>
             </span>
           ) : (
-            <Glyphs text={ST.callsign} />
+            <Glyphs text={ST.callsign} lower={lower} />
           )}
           {dial ? <span className="cr-brand-f">{dial}</span> : null}
         </a>
@@ -1972,7 +2004,7 @@ export default function CallsignRadioLanding({
         <div className="cr-sheet" id={uid + "-menu"} role="dialog" aria-modal="true" aria-label="Menu" ref={sheetRef}>
           <div className="cr-sheet-h">
             <span style={{ fontSize: 22 }}>
-              <Glyphs text={masthead} />
+              <Glyphs text={masthead} lower={lower} />
             </span>
             <button
               type="button"
@@ -2011,9 +2043,9 @@ export default function CallsignRadioLanding({
         </h1>
         <div className="cr-mast">
           <div className="cr-mast-in">
-            <MeterWord word={masthead} redAt={redAt} vertical seg={P.segment} gap={P.gap} register={register} />
+            <MeterWord word={masthead} redAt={redAt} lower={lower} vertical seg={P.segment} gap={P.gap} register={register} />
           </div>
-          <MeterWord word={masthead} redAt={redAt} seg={P.segment} gap={P.gap} register={register} />
+          <MeterWord word={masthead} redAt={redAt} lower={lower} seg={P.segment} gap={P.gap} register={register} />
         </div>
 
         <div className="cr-feature">
@@ -2426,7 +2458,7 @@ export default function CallsignRadioLanding({
       {FT ? (
         <footer className="cr-foot">
           <div className="cr-foot-word" aria-hidden="true">
-            <MeterWord word={masthead} redAt={redAt} seg={P.segment} gap={P.gap} register={register} />
+            <MeterWord word={masthead} redAt={redAt} lower={lower} seg={P.segment} gap={P.gap} register={register} />
           </div>
           <div className="cr-foot-grid">
             <form className="cr-news" onSubmit={subscribe} noValidate>
@@ -2504,7 +2536,7 @@ export default function CallsignRadioLanding({
 
       <div className="cr-dock" data-on={dockOn ? "" : undefined} aria-hidden={!dockOn}>
         <div className="cr-dock-in">
-          <MeterWord word={markOnly ? masthead : ST.callsign.toUpperCase()} redAt={markOnly ? redAt : -1} seg={P.segment} gap={P.gap} register={register} />
+          <MeterWord word={markOnly ? masthead : lower ? ST.callsign : ST.callsign.toUpperCase()} redAt={markOnly ? redAt : -1} lower={lower} seg={P.segment} gap={P.gap} register={register} />
           <div className="cr-dock-t">
             <b>{sourceTitle}</b>
             <span>{sourceLine}</span>

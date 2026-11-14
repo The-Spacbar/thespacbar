@@ -77,6 +77,7 @@ A stream that fails shows "The stream did not start" with a retry.
 | `onRemind` | `(show, start) => unknown` | | "Remind me" on a later slot. Return `false` or reject to show it failed. |
 | `onSupport` | `(amount, cadence, tier) => unknown` | | Same contract. Without it the button simulates success. |
 | `onSubscribe` | `(email) => unknown` | | Same contract. |
+| `mastheadCase` | `"upper" \| "lower"` | `"upper"` | `"lower"` sets the call sign in the lowercase glyphs (a b c d e h i l n o p r s t u and the full stop); any other letter stays a capital. A punctuation-only `frequency` such as `"."` joins the call sign as a red brand mark. |
 | `height` | `string` | `"100svh"` | Hero height, clamped to 640 to 1000 px. Never a percentage. |
 
 ## Demos

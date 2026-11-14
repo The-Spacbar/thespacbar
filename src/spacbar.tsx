@@ -2,9 +2,10 @@ import * as React from "react"
 import CallsignRadioLanding, { type CrShow } from "./callsign-radio-landing"
 
 // the spacbar., tuned like a station broadcasting out of Johannesburg. The
-// masthead reads THE SPACBAR. with the full stop in the meter's red zone.
-// Services are the shows, the studio day is the running order, the portfolio is the archive, and the support tuner books airtime (a project
-// timeline) instead of taking donations. Every action that would "send"
+// masthead reads "the spacbar." in lowercase, like the logo, with the full stop
+// in the meter's red zone. Services are the shows, the studio day is the running
+// order, the portfolio is the archive, and the support tuner books airtime (a
+// project timeline) instead of taking donations. Every action that would "send"
 // something opens a pre-filled email, so nothing pretends to submit.
 
 const EMAIL = "hello@thespacbar.com"
@@ -146,10 +147,11 @@ export default function Spacbar() {
   return (
     <CallsignRadioLanding
       preset="daytime"
+      mastheadCase="lower"
       theme="light"
       station={{
         name: "the spacbar.",
-        callsign: "THE SPACBAR",
+        callsign: "the spacbar",
         frequency: ".",
         city: "Johannesburg",
         tagline: "A production and creative agency broadcasting from Johannesburg. Film, campaigns, photography and post, made at the sharp edge of culture.",

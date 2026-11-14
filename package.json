@@ -1,0 +1,21 @@
+{
+  "name": "thespacbar",
+  "private": true,
+  "version": "1.0.0",
+  "description": "the spacbar. agency site, tuned like an online radio station",
+  "scripts": {
+    "build": "esbuild src/main.tsx --bundle --jsx=automatic --minify --format=iife --target=es2019 --define:process.env.NODE_ENV=\\\"production\\\" --outfile=assets/spacbar.js",
+    "dev": "esbuild src/main.tsx --bundle --jsx=automatic --format=iife --define:process.env.NODE_ENV=\\\"development\\\" --outfile=assets/spacbar.js --servedir=. --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "esbuild": "0.24.0",
+    "typescript": "5.6.3"
+  }
+}

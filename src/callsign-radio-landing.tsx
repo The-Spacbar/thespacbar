@@ -78,6 +78,9 @@ export type CrTokens = {
 
 export type CrSource = { kind: "live" } | { kind: "episode"; episode: CrEpisode }
 
+/** One item in the live playlist: an audio file played back to back as the station's live feed. */
+export type CrTrack = { url: string; title: string; seconds?: number; kind?: "music" | "talk" }
+
 export type CallsignRadioLandingProps = {
   station?: {
     name?: string
@@ -97,6 +100,16 @@ export type CallsignRadioLandingProps = {
   streamUrl?: string
   /** Set when the stream sends CORS headers, so the meter can read the real signal. */
   corsMeter?: boolean
+  /**
+   * Audio files played back to back as the live feed (e.g. podcast episodes), instead of a
+   * `streamUrl`. Each one moves on to the next when it ends, and the last loops to the first.
+   */
+  playlist?: CrTrack[]
+  /**
+   * Join the playlist mid-broadcast, like a radio: where it starts is worked out from the clock
+   * and every track's `seconds`, so every listener hears the same moment. Off: start at the top.
+   */
+  playlistSync?: boolean
   shows?: CrShow[]
   /** Today's running order (or every day's, if `week` is not given). */
   schedule?: CrSlot[]
@@ -697,6 +710,36 @@ function peakSeg(segs: { starts: number[]; ends: number[] }, level: number, W: n
   return [0, 0]
 }
 
+/**
+ * Where to join a playlist. Synced, it is a loop on the wall clock: the position in the loop is
+ * (seconds since 1970) mod (total length), so every listener lands on the same moment. Falls back
+ * to the top when any track has no length.
+ */
+function pickTrack(list: CrTrack[], sync: boolean, nowMs = Date.now()) {
+  const lens = list.map((t) => t.seconds || 0)
+  const total = lens.reduce((a, b) => a + b, 0)
+  if (!sync || !total || lens.some((l) => l <= 0)) return { i: 0, at: 0 }
+  let t = (nowMs / 1000) % total
+  for (let i = 0; i < lens.length; i++) {
+    if (t < lens[i]) return { i, at: Math.floor(t) }
+    t -= lens[i]
+  }
+  return { i: 0, at: 0 }
+}
+
+/** Seek once the file's metadata is in; before that, browsers ignore currentTime. */
+function seekAudio(a: HTMLAudioElement, at: number) {
+  const go = () => {
+    try {
+      a.currentTime = at
+    } catch {
+      /* a stream that cannot seek starts from the top */
+    }
+  }
+  if (a.readyState >= 1) go()
+  else a.addEventListener("loadedmetadata", go, { once: true })
+}
+
 const fmtDuration = (m: number) => (m >= 60 ? Math.floor(m / 60) + " h" + (m % 60 ? " " + (m % 60) + " min" : "") : m + " min")
 // #endregion logic
 
@@ -1066,9 +1109,12 @@ function DockProgress({ audio, played, source, live }: { audio: { current: HTMLA
   const [f, setF] = React.useState(0)
   React.useEffect(() => {
     const tick = () => {
-      if (source.kind === "live") return setF(live)
       const a = audio.current
-      if (a && a.getAttribute("data-src") && isFinite(a.duration) && a.duration > 0) return setF(clamp(a.currentTime / a.duration, 0, 1))
+      const src = a ? a.getAttribute("data-src") : null
+      // the file loaded is this source's own (a live playlist track, or the episode's audioUrl)
+      const own = !!src && (source.kind === "live" || src === source.episode.audioUrl)
+      if (a && own && isFinite(a.duration) && a.duration > 0) return setF(clamp(a.currentTime / a.duration, 0, 1))
+      if (source.kind === "live") return setF(live)
       const p = played.current
       const ms = p.ms + (p.since ? Date.now() - p.since : 0)
       setF(clamp(ms / 60000 / Math.max(1, source.episode.minutes), 0, 1))
@@ -1510,6 +1556,8 @@ export default function CallsignRadioLanding({
   memberCta = "Become a member",
   streamUrl,
   corsMeter = false,
+  playlist,
+  playlistSync = false,
   shows = DEFAULT_SHOWS,
   schedule = DEFAULT_SCHEDULE,
   week,
@@ -1615,7 +1663,13 @@ export default function CallsignRadioLanding({
   const playing = status === "playing" || status === "loading"
   const liveOn = playing && source.kind === "live"
   const srcShow = source.kind === "episode" ? showOf(source.episode.show) : nowShow
-  const kind = srcShow.kind || "music"
+  const tracks = playlist && playlist.length ? playlist : null
+  const tracksRef = React.useRef(tracks)
+  tracksRef.current = tracks
+  const [trackAt, setTrackAt] = React.useState(-1)
+  const trackRef = React.useRef(-1)
+  const liveTrack = tracks && source.kind === "live" && trackAt >= 0 && trackAt < tracks.length ? tracks[trackAt] : null
+  const kind = liveTrack ? liveTrack.kind || "talk" : srcShow.kind || "music"
   const analysers = React.useRef(null as null | { l: AnalyserNode; r: AnalyserNode; buf: Float32Array })
   const ctxRef = React.useRef(null as AudioContext | null)
 
@@ -1654,15 +1708,25 @@ export default function CallsignRadioLanding({
   const played = React.useRef({ key: "", ms: 0, since: 0 })
   const start = (next: CrSource) => {
     const a = audioRef.current
-    const url = next.kind === "live" ? streamUrl : next.episode.audioUrl
+    let seekTo = -1
+    let url = next.kind === "live" ? streamUrl : next.episode.audioUrl
+    if (next.kind === "live" && tracks) {
+      const pick = pickTrack(tracks, playlistSync)
+      url = tracks[pick.i].url
+      seekTo = pick.at
+      trackRef.current = pick.i
+      setTrackAt(pick.i)
+    }
     setSource(next)
     setDocked(true)
     const key = next.kind === "live" ? "live" : next.episode.id
     if (played.current.key !== key) played.current = { key, ms: 0, since: 0 }
     played.current.since = Date.now()
     if (onPlay) onPlay(next)
-    const label = next.kind === "live" ? ST.name + " live: " + nowShow.title : next.episode.title
+    const label = next.kind === "live" ? ST.name + " live: " + (tracks && trackRef.current >= 0 ? tracks[trackRef.current].title : nowShow.title) : next.episode.title
     if (!url || !a) {
+      // nothing real to play for this source: silence whatever was playing before
+      if (a && !a.paused) a.pause()
       setStatus("playing")
       setSaid("Playing " + label)
       return
@@ -1672,6 +1736,7 @@ export default function CallsignRadioLanding({
       a.src = url
       a.setAttribute("data-src", url)
     }
+    if (seekTo > 0) seekAudio(a, seekTo)
     wireMeter()
     if (ctxRef.current && ctxRef.current.state === "suspended") ctxRef.current.resume().catch(() => undefined)
     setStatus("loading")
@@ -1685,6 +1750,23 @@ export default function CallsignRadioLanding({
         setStatus("error")
         setSaid(T.streamError)
       }
+    )
+  }
+  /** Move to the next playlist track when one ends (the live feed only). */
+  const nextTrack = () => {
+    const list = tracksRef.current
+    const a = audioRef.current
+    if (!list || !a) return
+    const i = (trackRef.current + 1) % list.length
+    trackRef.current = i
+    setTrackAt(i)
+    a.src = list[i].url
+    a.setAttribute("data-src", list[i].url)
+    setStatus("loading")
+    setSaid("Now playing " + list[i].title)
+    a.play().then(
+      () => setStatus("playing"),
+      () => setStatus("error")
     )
   }
   const stop = () => {
@@ -1933,7 +2015,7 @@ export default function CallsignRadioLanding({
   const featLabel = fstate === "now" ? T.onAirNow : fstate === "next" ? T.later : T.earlier
   const featEpisode = eps.find((e) => feat && e.show === feat.show)
   const playLabel = liveOn ? "Pause " + ST.name : status === "error" ? "Try the stream again" : "Listen live to " + ST.name
-  const sourceTitle = source.kind === "episode" ? source.episode.title : nowShow.title
+  const sourceTitle = source.kind === "episode" ? source.episode.title : liveTrack ? liveTrack.title : nowShow.title
   const sourceLine = source.kind === "episode" ? showOf(source.episode.show).title + ", " + source.episode.date : T.liveOn + " " + (dial ? dial + " FM" : ST.name)
 
   return (
@@ -1947,6 +2029,10 @@ export default function CallsignRadioLanding({
         preload="none"
         onPlaying={() => setStatus("playing")}
         onWaiting={() => setStatus((s) => (s === "playing" ? "loading" : s))}
+        onEnded={() => {
+          if (source.kind === "live" && tracksRef.current) nextTrack()
+          else setStatus("idle")
+        }}
         onError={() => {
           if (audioRef.current && audioRef.current.getAttribute("data-src")) setStatus("error")
         }}
@@ -2123,7 +2209,7 @@ export default function CallsignRadioLanding({
                 </p>
               ) : (
                 <p className="cr-pline">
-                  <b>{source.kind === "episode" && playing ? sourceTitle : T.live + ": " + nowShow.title}</b>
+                  <b>{source.kind === "episode" && playing ? sourceTitle : T.live + ": " + (liveTrack ? liveTrack.title : nowShow.title)}</b>
                   <span className="cr-mono">{source.kind === "episode" && playing ? T.archive : order[cur] ? fmtMin(order[cur].from) + "-" + fmtMin(order[cur].to) : ""}</span>
                 </p>
               )}

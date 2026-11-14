@@ -1,5 +1,6 @@
 import * as React from "react"
-import CallsignRadioLanding, { type CrShow } from "./callsign-radio-landing"
+import CallsignRadioLanding, { type CrShow, type CrTrack } from "./callsign-radio-landing"
+import PODCAST_SNAPSHOT from "./podcast.json"
 
 // the spacbar., tuned like a station broadcasting out of Johannesburg. The
 // masthead reads "the spacbar." in lowercase, like the logo, with the full stop
@@ -9,6 +10,51 @@ import CallsignRadioLanding, { type CrShow } from "./callsign-radio-landing"
 // something opens a pre-filled email, so nothing pretends to submit.
 
 const EMAIL = "hello@thespacbar.com"
+
+// The live feed is the #PLAYMRVL podcast, played back to back and joined mid-broadcast.
+// The browser reads the RSS directly (Anchor allows it), so new episodes go on air without a
+// rebuild; src/podcast.json (npm run podcast) is the fallback if the feed can't be reached.
+const PODCAST_RSS = "https://anchor.fm/s/b92db68/podcast/rss"
+const PODCAST_PAGE = "https://pca.st/kqxk"
+
+const cleanTitle = (t: string) => t.replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\s+/g, " ").trim()
+const toSeconds = (d: string) => {
+  const p = d.trim().split(":").map(Number)
+  return p.some(isNaN) ? 0 : p.reduce((a, n) => a * 60 + n, 0)
+}
+const SNAPSHOT: CrTrack[] = PODCAST_SNAPSHOT.map((e) => ({ url: e.url, title: cleanTitle(e.title), seconds: e.seconds, kind: "talk" as const }))
+
+function parseFeed(xml: string): CrTrack[] {
+  const doc = new DOMParser().parseFromString(xml, "application/xml")
+  const out: CrTrack[] = []
+  Array.from(doc.getElementsByTagName("item")).forEach((item) => {
+    const enc = item.getElementsByTagName("enclosure")[0]
+    const url = enc && enc.getAttribute("url")
+    if (!url) return
+    const title = item.getElementsByTagName("title")[0]
+    const dur = item.getElementsByTagName("itunes:duration")[0]
+    out.push({ url, title: cleanTitle(title ? title.textContent || "" : ""), seconds: dur ? toSeconds(dur.textContent || "") : 0, kind: "talk" })
+  })
+  return out
+}
+
+function usePodcast() {
+  const [tracks, setTracks] = React.useState(SNAPSHOT)
+  React.useEffect(() => {
+    let live = true
+    fetch(PODCAST_RSS)
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
+      .then((xml) => {
+        const fresh = parseFeed(xml)
+        if (live && fresh.length) setTracks(fresh)
+      })
+      .catch(() => undefined)
+    return () => {
+      live = false
+    }
+  }, [])
+  return tracks
+}
 
 const RED = "#E21C1C"
 const BLUE = "#1A80D4"
@@ -144,8 +190,11 @@ const EPISODES = [
 ]
 
 export default function Spacbar() {
+  const podcast = usePodcast()
   return (
     <CallsignRadioLanding
+      playlist={podcast}
+      playlistSync
       preset="daytime"
       mastheadCase="lower"
       theme="light"
@@ -241,6 +290,7 @@ export default function Spacbar() {
           {
             title: "Elsewhere",
             links: [
+              { label: "#PLAYMRVL podcast", href: PODCAST_PAGE },
               { label: "Behance", href: "https://www.behance.net/holasimzmrvl" },
               { label: "Instagram", href: "https://instagram.com/simzmrvlco" },
               { label: "Twitter", href: "https://twitter.com/HOLASIMZMRVL" },

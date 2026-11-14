@@ -58,6 +58,8 @@ A stream that fails shows "The stream did not start" with a retry.
 | `links` | `{ label, href }[]` | Listen / Schedule / Residents / Archive / Support | `#listen`, `#schedule`, `#residents`, `#archive`, `#support` scroll inside the page. |
 | `memberCta` | `string` | `"Become a member"` | The nav button; scrolls to the support tuner. |
 | `streamUrl` | `string` | none | Live stream. |
+| `playlist` | `{ url, title, seconds?, kind? }[]` | none | Audio files played back to back as the live feed (e.g. podcast episodes) instead of `streamUrl`; each moves on to the next when it ends. |
+| `playlistSync` | `boolean` | `false` | Join the playlist mid-broadcast from the clock and each track's `seconds`, so every listener hears the same moment. |
 | `corsMeter` | `boolean` | `false` | Set when the stream sends CORS headers. |
 | `shows` | `CrShow[]` | 9 shows | `{ id, title, host, genres, blurb, ink?: [a, b], art?, image?, kind?, slot?, href?, hidden? }` |
 | `schedule` | `{ start: "13:00", show: id }[]` | a full day | Each slot runs until the next one starts. |

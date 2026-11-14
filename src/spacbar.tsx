@@ -1,9 +1,9 @@
 import * as React from "react"
 import CallsignRadioLanding, { type CrShow } from "./callsign-radio-landing"
 
-// the spacbar., tuned like a station. The agency runs as 011 FM out of
-// Johannesburg: services are the shows, the studio day is the running order,
-// the portfolio is the archive, and the support tuner books airtime (a project
+// the spacbar., tuned like a station broadcasting out of Johannesburg. The
+// masthead reads THE SPACBAR. with the full stop in the meter's red zone.
+// Services are the shows, the studio day is the running order, the portfolio is the archive, and the support tuner books airtime (a project
 // timeline) instead of taking donations. Every action that would "send"
 // something opens a pre-filled email, so nothing pretends to submit.
 
@@ -149,8 +149,8 @@ export default function Spacbar() {
       theme="light"
       station={{
         name: "the spacbar.",
-        callsign: "SPACBAR",
-        frequency: "011",
+        callsign: "THE SPACBAR",
+        frequency: ".",
         city: "Johannesburg",
         tagline: "A production and creative agency broadcasting from Johannesburg. Film, campaigns, photography and post, made at the sharp edge of culture.",
         timeZone: "Africa/Johannesburg",

@@ -1123,6 +1123,7 @@ const CR_CSS = `
 
 .cr-nav{position:sticky;top:0;z-index:30;height:var(--cr-nav);display:flex;align-items:center;gap:20px;padding:0 var(--cr-pad);background:var(--cr-ground);border-bottom:1px solid var(--cr-line);transition:background-color .35s var(--cr-ease)}
 .cr-brand{display:flex;align-items:center;gap:10px;font-size:22px;flex:none}
+.cr-brand-m{display:inline-flex;align-items:center;gap:.07em}
 .cr-brand-f{font-family:var(--cr-mono);font-size:13px;font-weight:600;color:var(--cr-tally)}
 .cr-links{display:flex;align-items:center;gap:0;font-size:15px;font-weight:600}
 .cr-links li{display:flex;align-items:center}
@@ -1518,8 +1519,12 @@ export default function CallsignRadioLanding({
   for (const s of shows) showMap[s.id] = s
   const fallbackShow: CrShow = { id: "_", title: ST.name, host: ST.city, genres: [], blurb: ST.tagline }
   const showOf = (id: string) => showMap[id] || fallbackShow
-  const masthead = (ST.callsign + (ST.frequency ? " " + ST.frequency : "")).toUpperCase()
-  const redAt = ST.frequency ? layoutText(ST.callsign).items.length + 1 : -1
+  // A frequency of only punctuation (e.g. ".") is a brand mark: it joins the call sign with no
+  // space, still takes the red zone, and is never printed as "FM".
+  const markOnly = !!ST.frequency && !/[0-9a-z]/i.test(ST.frequency)
+  const dial = ST.frequency && !markOnly ? ST.frequency : ""
+  const masthead = (ST.callsign + (ST.frequency ? (markOnly ? "" : " ") + ST.frequency : "")).toUpperCase()
+  const redAt = ST.frequency ? layoutText(ST.callsign).items.length + (markOnly ? 0 : 1) : -1
 
   useReveal(rootRef, reduced)
 
@@ -1897,7 +1902,7 @@ export default function CallsignRadioLanding({
   const featEpisode = eps.find((e) => feat && e.show === feat.show)
   const playLabel = liveOn ? "Pause " + ST.name : status === "error" ? "Try the stream again" : "Listen live to " + ST.name
   const sourceTitle = source.kind === "episode" ? source.episode.title : nowShow.title
-  const sourceLine = source.kind === "episode" ? showOf(source.episode.show).title + ", " + source.episode.date : T.liveOn + " " + (ST.frequency ? ST.frequency + " FM" : ST.name)
+  const sourceLine = source.kind === "episode" ? showOf(source.episode.show).title + ", " + source.episode.date : T.liveOn + " " + (dial ? dial + " FM" : ST.name)
 
   return (
     <div ref={rootRef} className={"cr-root " + (className || "")} data-theme={dark ? "dark" : "light"} data-preset={preset} style={vars}>
@@ -1917,8 +1922,17 @@ export default function CallsignRadioLanding({
 
       <header className="cr-nav">
         <a className="cr-brand" href="#listen" onClick={go("#listen")} aria-label={ST.name + ", back to the top"}>
-          <Glyphs text={ST.callsign} />
-          {ST.frequency ? <span className="cr-brand-f">{ST.frequency}</span> : null}
+          {markOnly ? (
+            <span className="cr-brand-m">
+              <Glyphs text={ST.callsign} />
+              <span style={{ color: "var(--cr-tally)" }}>
+                <Glyphs text={ST.frequency} />
+              </span>
+            </span>
+          ) : (
+            <Glyphs text={ST.callsign} />
+          )}
+          {dial ? <span className="cr-brand-f">{dial}</span> : null}
         </a>
         <nav aria-label="Sections">
           <ul className="cr-links">
@@ -1992,7 +2006,7 @@ export default function CallsignRadioLanding({
       <section className="cr-hero" data-sec="listen" aria-labelledby={uid + "-h1"}>
         <h1 className="cr-sr" id={uid + "-h1"}>
           {ST.name}
-          {ST.frequency ? ", " + ST.frequency + " FM " : " "}
+          {dial ? ", " + dial + " FM " : " "}
           {ST.city ? "in " + ST.city : ""}
         </h1>
         <div className="cr-mast">
@@ -2481,7 +2495,7 @@ export default function CallsignRadioLanding({
               © {new Date().getFullYear()} {FT.legal}
             </span>
             <span className="cr-mono">
-              {ST.frequency ? ST.frequency + " FM, " : ""}
+              {dial ? dial + " FM, " : ""}
               {ST.city}
             </span>
           </div>
@@ -2490,7 +2504,7 @@ export default function CallsignRadioLanding({
 
       <div className="cr-dock" data-on={dockOn ? "" : undefined} aria-hidden={!dockOn}>
         <div className="cr-dock-in">
-          <MeterWord word={ST.callsign.toUpperCase()} redAt={-1} seg={P.segment} gap={P.gap} register={register} />
+          <MeterWord word={markOnly ? masthead : ST.callsign.toUpperCase()} redAt={markOnly ? redAt : -1} seg={P.segment} gap={P.gap} register={register} />
           <div className="cr-dock-t">
             <b>{sourceTitle}</b>
             <span>{sourceLine}</span>

@@ -1,6 +1,7 @@
 import * as React from "react"
 import CallsignRadioLanding, { type CrShow, type CrTrack } from "./callsign-radio-landing"
 import PODCAST_SNAPSHOT from "./podcast.json"
+import { GlobeLive, type LiveMarker } from "./components/ui/cobe-globe-live"
 
 // the spacbar., tuned like a station broadcasting out of Johannesburg. The
 // masthead reads "the spacbar." in lowercase, like the logo, with the full stop
@@ -22,6 +23,56 @@ const PODCAST_PAGE = "https://pca.st/kqxk"
 // instagram.config.json). Visitors read that copy, not Behold, so traffic never uses up the
 // feed's monthly view allowance. With no posts the row stays hidden.
 const INSTAGRAM = "https://www.instagram.com/thespacbar_za/"
+
+// The globe in the hero's artwork slot. It sits on the Johannesburg studio and turns to where
+// a show's work has gone: production to Lagos (Spotify Surround Sound, Live in Lagos) and
+// long form to London (The Evolution of Black British Music, BET UK). Add places and links here.
+const PLACES = {
+  jhb: { location: [-26.2, 28.05] as [number, number], label: "Johannesburg, studio" },
+  lagos: { location: [6.52, 3.38] as [number, number], label: "Lagos, Spotify Surround Sound" },
+  london: { location: [51.51, -0.13] as [number, number], label: "London, BET UK" },
+}
+type Place = keyof typeof PLACES
+const SHOW_PLACE: { [show: string]: Place } = { call: "lagos", long: "london" }
+
+const rgb = (hex: string): [number, number, number] => {
+  const n = parseInt(hex.replace("#", ""), 16)
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]
+}
+
+function StudioGlobe({ show, dark, playing, reduced }: { show: CrShow; dark: boolean; playing: boolean; reduced: boolean }) {
+  const place = SHOW_PLACE[show.id] || "jhb"
+  const ink = show.ink || [RED, BLUE]
+  const markers = React.useMemo<LiveMarker[]>(
+    () =>
+      (Object.keys(PLACES) as Place[])
+        .filter((k) => k === "jhb" || k === place)
+        .map((k) => ({
+          id: k,
+          location: PLACES[k].location,
+          label: PLACES[k].label,
+          live: k === "jhb" && playing,
+          size: k === place ? 0.06 : 0.04,
+          color: k === "jhb" ? rgb(RED) : rgb(ink[0]),
+        })),
+    [place, playing, ink[0]]
+  )
+  const arcs = React.useMemo(() => (place === "jhb" ? [] : [{ id: "jhb-" + place, from: PLACES.jhb.location, to: PLACES[place].location }]), [place])
+  return (
+    <GlobeLive
+      markers={markers}
+      arcs={arcs}
+      focus={place}
+      dark={dark}
+      still={reduced}
+      colors={
+        dark
+          ? { base: [0.3, 0.29, 0.27], glow: [0.09, 0.09, 0.08], arc: rgb(ink[0]) }
+          : { base: [0.97, 0.95, 0.9], glow: [0.89, 0.85, 0.78], arc: rgb(ink[1] === YELLOW ? ink[0] : ink[1]) }
+      }
+    />
+  )
+}
 
 /** South Africa's flag (2:3, official colours), as tall as the red buttons, linking to Brand South Africa. */
 function SouthAfricaFlag() {
@@ -335,6 +386,7 @@ export default function Spacbar() {
   return (
     <CallsignRadioLanding
       playlist={podcast}
+      heroArt={({ show, dark, playing, reduced }) => <StudioGlobe show={show} dark={dark} playing={playing} reduced={reduced} />}
       playlistSync
       preset="daytime"
       mastheadCase="lower"

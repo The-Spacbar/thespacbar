@@ -183,6 +183,11 @@ export type CallsignRadioLandingProps = {
   labels?: CrLabelsInput
   /** "lower" sets the call sign in the lowercase glyphs (a, b, c, d, e, h, i, l, n, o, p, r, s, t, u and "."); others stay capitals. */
   mastheadCase?: "upper" | "lower"
+  /**
+   * Replaces the generated print in the hero's artwork slot. Called with the show in the
+   * feature slot (the one on air, or the one picked in the rail) and the page's state.
+   */
+  heroArt?: (ctx: { show: CrShow; state: "wait" | "now" | "next" | "past"; dark: boolean; playing: boolean; reduced: boolean }) => React.ReactNode
   /** Hero height. A definite length, never a percentage. */
   height?: string
   className?: string
@@ -1261,6 +1266,9 @@ const CR_CSS = `
 .cr-tagline{font-size:15px;line-height:1.45;color:var(--cr-muted);max-width:30ch}
 .cr-kicker{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
 .cr-kicker .cr-mono{font-weight:600;color:var(--cr-muted);letter-spacing:0;text-transform:none;font-size:12px}
+.cr-cover-wrap[data-art="custom"]{display:grid;place-items:center}
+.cr-cover-wrap[data-art="custom"]>*{height:92%;max-width:92%}
+@media (max-width:719px){.cr-cover-wrap[data-art="custom"]{place-items:start center}.cr-cover-wrap[data-art="custom"]>*{height:74%;margin-top:3%}}
 .cr-cover-wrap{position:relative;justify-self:end;width:100%;height:clamp(260px,calc(var(--cr-hh) - 345px),640px);border-radius:var(--cr-r);overflow:hidden;background:var(--cr-panel)}
 .cr-cover{position:relative;display:block;width:100%;height:100%;overflow:hidden;background:var(--cr-paper)}
 .cr-cover svg,.cr-cover img{position:absolute;inset:0;width:100%;height:100%;display:block;max-width:none;object-fit:cover}
@@ -1634,6 +1642,7 @@ export default function CallsignRadioLanding({
   onSubscribe,
   labels,
   mastheadCase = "upper",
+  heroArt,
   height = "100svh",
   className,
 }: CallsignRadioLandingProps) {
@@ -2278,8 +2287,8 @@ export default function CallsignRadioLanding({
                 </button>
               ) : null}
             </div>
-            <div className="cr-cover-wrap">
-              <Cover show={fshow} seed="hero" image={fshow.image} label="" alt={"Artwork for " + fshow.title} />
+            <div className="cr-cover-wrap" data-art={heroArt ? "custom" : undefined}>
+              {heroArt ? heroArt({ show: fshow, state: fstate, dark, playing: liveOn, reduced }) : <Cover show={fshow} seed="hero" image={fshow.image} label="" alt={"Artwork for " + fshow.title} />}
             </div>
           </div>
           <h2 className="cr-ftitle">

@@ -188,6 +188,13 @@ export type CallsignRadioLandingProps = {
    * feature slot (the one on air, or the one picked in the rail) and the page's state.
    */
   heroArt?: (ctx: { show: CrShow; state: "wait" | "now" | "next" | "past"; dark: boolean; playing: boolean; reduced: boolean }) => React.ReactNode
+  /**
+   * Start the live feed on its own this many milliseconds after the page loads. Browsers block
+   * sound until a visitor has interacted with the site, so when the attempt is refused the
+   * player stays quiet (no error) and starts on the visitor's first click, tap or key press
+   * instead, unless they have already pressed play or pause, are typing, or are watching a film.
+   */
+  autoplay?: number | false
   /** Hero height. A definite length, never a percentage. */
   height?: string
   className?: string
@@ -1643,6 +1650,7 @@ export default function CallsignRadioLanding({
   labels,
   mastheadCase = "upper",
   heroArt,
+  autoplay = false,
   height = "100svh",
   className,
 }: CallsignRadioLandingProps) {
@@ -1772,8 +1780,10 @@ export default function CallsignRadioLanding({
 
   // listening time per source, for episodes without a real audio file
   const played = React.useRef({ key: "", ms: 0, since: 0 })
-  const start = (next: CrSource) => {
+  const startedRef = React.useRef(false)
+  const start = (next: CrSource, quiet = false) => {
     const a = audioRef.current
+    if (!quiet) startedRef.current = true
     let seekTo = -1
     let url = next.kind === "live" ? streamUrl : next.episode.audioUrl
     if (next.kind === "live" && tracks) {
@@ -1793,9 +1803,10 @@ export default function CallsignRadioLanding({
     if (!url || !a) {
       // nothing real to play for this source: silence whatever was playing before
       if (a && !a.paused) a.pause()
+      startedRef.current = true
       setStatus("playing")
       setSaid("Playing " + label)
-      return
+      return Promise.resolve(true)
     }
     if (a.getAttribute("data-src") !== url) {
       if (corsMeter) a.crossOrigin = "anonymous"
@@ -1807,14 +1818,24 @@ export default function CallsignRadioLanding({
     if (ctxRef.current && ctxRef.current.state === "suspended") ctxRef.current.resume().catch(() => undefined)
     setStatus("loading")
     setSaid("Tuning in to " + label)
-    a.play().then(
+    return a.play().then(
       () => {
+        startedRef.current = true
         setStatus("playing")
         setSaid("Playing " + label)
+        return true
       },
       () => {
-        setStatus("error")
-        setSaid(T.streamError)
+        if (quiet) {
+          // an autoplay the browser refused: not an error, just wait for the visitor
+          setStatus("idle")
+          setDocked(false)
+          setSaid("")
+        } else {
+          setStatus("error")
+          setSaid(T.streamError)
+        }
+        return false
       }
     )
   }
@@ -1836,6 +1857,7 @@ export default function CallsignRadioLanding({
     )
   }
   const stop = () => {
+    startedRef.current = true
     if (played.current.since) played.current.ms += Date.now() - played.current.since
     played.current.since = 0
     const a = audioRef.current
@@ -2077,6 +2099,47 @@ export default function CallsignRadioLanding({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video ? video.ep.id : ""])
+
+  /* ---------- autoplay: try after a delay, else on the first interaction ---------- */
+  const startRef = React.useRef(start)
+  startRef.current = start
+  const videoOpenRef = React.useRef(false)
+  videoOpenRef.current = !!video
+  React.useEffect(() => {
+    if (autoplay === false || autoplay == null || typeof document === "undefined") return
+    let disarm = () => undefined as void
+    const blocked = () => startedRef.current || videoOpenRef.current
+    const onGesture = (e: Event) => {
+      const t = e.target as HTMLElement | null
+      // filling in a form field is not a request for music
+      if (t && t.closest && t.closest("input,textarea,select,label,[contenteditable]")) return
+      disarm()
+      // React has already run this click's own handler (play, a film tile), so check after it
+      if (!blocked()) startRef.current({ kind: "live" }, true)
+    }
+    const arm = () => {
+      const opts = { capture: false, passive: true } as AddEventListenerOptions
+      document.addEventListener("click", onGesture, opts)
+      document.addEventListener("keydown", onGesture, opts)
+      document.addEventListener("touchend", onGesture, opts)
+      disarm = () => {
+        document.removeEventListener("click", onGesture, opts)
+        document.removeEventListener("keydown", onGesture, opts)
+        document.removeEventListener("touchend", onGesture, opts)
+      }
+    }
+    const timer = window.setTimeout(() => {
+      if (blocked()) return
+      startRef.current({ kind: "live" }, true).then((ok) => {
+        if (!ok && !blocked()) arm()
+      })
+    }, Math.max(0, autoplay))
+    return () => {
+      window.clearTimeout(timer)
+      disarm()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoplay])
 
   /* ---------- support ---------- */
   const smin = SP ? SP.min : 0

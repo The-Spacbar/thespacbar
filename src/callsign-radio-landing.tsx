@@ -85,6 +85,9 @@ export type CrTokens = {
 
 export type CrSource = { kind: "live" } | { kind: "episode"; episode: CrEpisode }
 
+/** One post in the social row: where it links, its picture, and whether it is a video. */
+export type CrSocialItem = { url: string; image: string; video?: boolean; caption?: string }
+
 /** One item in the live playlist: an audio file played back to back as the station's live feed. */
 export type CrTrack = { url: string; title: string; seconds?: number; kind?: "music" | "talk" }
 
@@ -124,6 +127,13 @@ export type CallsignRadioLandingProps = {
   week?: { [weekday: string]: CrSlot[] }
   episodes?: CrEpisode[] | null
   listen?: { title?: string; ways?: CrWay[] } | null
+  /**
+   * A row of social posts that scrolls past in a slow, continuous line, between the ways to tune
+   * in and the residents, under a button to the profile. Posts come from `items`, or are loaded
+   * from `feed` (a URL of JSON: an array of CrSocialItem, or { posts: [...] }). Hidden when
+   * there are none.
+   */
+  social?: { handle?: string; href?: string; cta?: string; feed?: string; items?: CrSocialItem[] } | null
   residents?: { title?: string; text?: string } | null
   archive?: { title?: string; text?: string } | null
   support?: {
@@ -152,6 +162,10 @@ export type CallsignRadioLandingProps = {
     successText?: string
     addressTitle?: string
     legal?: string
+    /** Replaces the "98.4 FM, City" note at the end of the legal line, e.g. a flag that links somewhere. */
+    legalEnd?: React.ReactNode
+    /** "as-written" keeps the column headings in the case you typed them instead of capitals. */
+    headingCase?: "upper" | "as-written"
   } | null
   /** "night" is a club station on carbon and chalk, "daytime" a community station on signal yellow. */
   preset?: "night" | "daytime"
@@ -169,6 +183,11 @@ export type CallsignRadioLandingProps = {
   labels?: CrLabelsInput
   /** "lower" sets the call sign in the lowercase glyphs (a, b, c, d, e, h, i, l, n, o, p, r, s, t, u and "."); others stay capitals. */
   mastheadCase?: "upper" | "lower"
+  /**
+   * Replaces the generated print in the hero's artwork slot. Called with the show in the
+   * feature slot (the one on air, or the one picked in the rail) and the page's state.
+   */
+  heroArt?: (ctx: { show: CrShow; state: "wait" | "now" | "next" | "past"; dark: boolean; playing: boolean; reduced: boolean }) => React.ReactNode
   /** Hero height. A definite length, never a percentage. */
   height?: string
   className?: string
@@ -1247,6 +1266,9 @@ const CR_CSS = `
 .cr-tagline{font-size:15px;line-height:1.45;color:var(--cr-muted);max-width:30ch}
 .cr-kicker{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
 .cr-kicker .cr-mono{font-weight:600;color:var(--cr-muted);letter-spacing:0;text-transform:none;font-size:12px}
+.cr-cover-wrap[data-art="custom"]{display:grid;place-items:center}
+.cr-cover-wrap[data-art="custom"]>*{height:92%;max-width:92%}
+@media (max-width:719px){.cr-cover-wrap[data-art="custom"]{place-items:start center}.cr-cover-wrap[data-art="custom"]>*{height:74%;margin-top:3%}}
 .cr-cover-wrap{position:relative;justify-self:end;width:100%;height:clamp(260px,calc(var(--cr-hh) - 345px),640px);border-radius:var(--cr-r);overflow:hidden;background:var(--cr-panel)}
 .cr-cover{position:relative;display:block;width:100%;height:100%;overflow:hidden;background:var(--cr-paper)}
 .cr-cover svg,.cr-cover img{position:absolute;inset:0;width:100%;height:100%;display:block;max-width:none;object-fit:cover}
@@ -1286,6 +1308,23 @@ const CR_CSS = `
 .cr-prog i{position:absolute;inset:0;background:var(--cr-ink);transform-origin:left;transition:transform 1s linear}
 .cr-ptimes{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--cr-muted)}
 .cr-vol{display:flex;align-items:center;gap:6px;flex:none}
+.cr-foot[data-case="as-written"] h3{text-transform:none;letter-spacing:0}
+.cr-legal{align-items:center}
+.cr-ig{padding:clamp(40px,5vw,72px) 0 0}
+.cr-ig-h{display:flex;justify-content:flex-end;padding:0 var(--cr-pad);margin-bottom:clamp(18px,2vw,28px)}
+.cr-ig-view{overflow:hidden}
+.cr-ig-view:hover .cr-ig-track,.cr-ig-view:focus-within .cr-ig-track{animation-play-state:paused}
+.cr-ig-view[data-still]{overflow-x:auto;scroll-snap-type:x mandatory}
+.cr-ig-track{display:flex;gap:16px;width:max-content;padding:0 8px;animation:cr-ig calc(var(--n) * 6s) linear infinite}
+.cr-ig-view[data-still] .cr-ig-track{animation:none;padding:0 var(--cr-pad)}
+.cr-ig-card{flex:none;width:212px;height:306px;border-radius:var(--cr-r);overflow:hidden;background:var(--cr-panel);scroll-snap-align:start}
+.cr-ig-card a{position:relative;display:block;width:100%;height:100%}
+.cr-ig-card img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .5s var(--cr-ease)}
+.cr-ig-vid{position:absolute;top:10px;right:10px;width:28px;height:28px;display:grid;place-items:center;border-radius:50%;background:rgba(0,0,0,.55);color:#fff}
+.cr-ig-vid svg{width:14px;height:14px}
+@media (hover:hover){.cr-ig-card a:hover img{transform:scale(1.04)}}
+@keyframes cr-ig{to{transform:translateX(calc(-100% / 3))}}
+@media (max-width:719px){.cr-ig-card{width:182px;height:273px}}
 .cr-vid{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:var(--cr-pad);background:rgba(0,0,0,.74)}
 .cr-vid-in{width:min(1120px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column;gap:14px;padding:clamp(14px,2vw,24px);border-radius:calc(var(--cr-r) * 2);background:var(--cr-ground);color:var(--cr-ink)}
 .cr-vid-h{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
@@ -1588,6 +1627,7 @@ export default function CallsignRadioLanding({
   week,
   episodes = DEFAULT_EPISODES,
   listen,
+  social,
   residents,
   archive,
   support,
@@ -1602,6 +1642,7 @@ export default function CallsignRadioLanding({
   onSubscribe,
   labels,
   mastheadCase = "upper",
+  heroArt,
   height = "100svh",
   className,
 }: CallsignRadioLandingProps) {
@@ -1971,6 +2012,25 @@ export default function CallsignRadioLanding({
   const [genre, setGenre] = React.useState("")
   const shown = !genre || genre === T.allGenres ? eps : eps.filter((e) => showOf(e.show).genres.slice(0, 1).indexOf(genre) > -1)
 
+  /* ---------- social row ---------- */
+  const [socialItems, setSocialItems] = React.useState(social && social.items ? social.items : ([] as CrSocialItem[]))
+  const socialFeed = social ? social.feed || "" : ""
+  React.useEffect(() => {
+    if (!socialFeed) return
+    let live = true
+    fetch(socialFeed, { cache: "no-cache" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((data: unknown) => {
+        const list = (Array.isArray(data) ? data : data && typeof data === "object" && Array.isArray((data as { posts?: unknown }).posts) ? (data as { posts: unknown[] }).posts : []) as CrSocialItem[]
+        const ok = list.filter((x) => x && typeof x.url === "string" && typeof x.image === "string")
+        if (live && ok.length) setSocialItems(ok)
+      })
+      .catch(() => undefined)
+    return () => {
+      live = false
+    }
+  }, [socialFeed])
+
   /* ---------- video window: work with video plays here, apart from the radio ---------- */
   const [video, setVideo] = React.useState(null as null | { ep: CrEpisode; i: number })
   const videoFrom = React.useRef(null as HTMLElement | null)
@@ -2227,8 +2287,8 @@ export default function CallsignRadioLanding({
                 </button>
               ) : null}
             </div>
-            <div className="cr-cover-wrap">
-              <Cover show={fshow} seed="hero" image={fshow.image} label="" alt={"Artwork for " + fshow.title} />
+            <div className="cr-cover-wrap" data-art={heroArt ? "custom" : undefined}>
+              {heroArt ? heroArt({ show: fshow, state: fstate, dark, playing: liveOn, reduced }) : <Cover show={fshow} seed="hero" image={fshow.image} label="" alt={"Artwork for " + fshow.title} />}
             </div>
           </div>
           <h2 className="cr-ftitle">
@@ -2382,6 +2442,37 @@ export default function CallsignRadioLanding({
               <p>{w.href ? <a href={w.href}>{w.text}</a> : w.text}</p>
             </div>
           ))}
+        </section>
+      ) : null}
+
+      {social && socialItems.length ? (
+        <section className="cr-ig" aria-label={"Latest posts from " + (social.handle || "Instagram")}>
+          {social.href ? (
+            <div className="cr-ig-h">
+              <a className="cr-btn cr-line" href={social.href} target="_blank" rel="noopener noreferrer">
+                {social.cta || social.handle || "Instagram"}
+                <Icon name="arrow" />
+              </a>
+            </div>
+          ) : null}
+          <div className="cr-ig-view" data-still={reduced ? "" : undefined}>
+            <ul className="cr-ig-track" style={{ "--n": socialItems.length } as React.CSSProperties}>
+              {(reduced ? [0] : [0, 1, 2]).map((copy) =>
+                socialItems.map((it, i) => (
+                  <li key={copy + "-" + i} className="cr-ig-card" aria-hidden={copy ? true : undefined}>
+                    <a href={it.url} target="_blank" rel="noopener noreferrer" tabIndex={copy ? -1 : undefined} aria-label={(it.video ? "Video post: " : "Post: ") + (it.caption ? it.caption.slice(0, 90) : "open on Instagram")}>
+                      <img src={it.image} alt="" decoding="async" />
+                      {it.video ? (
+                        <span className="cr-ig-vid" aria-hidden="true">
+                          <Icon name="play" />
+                        </span>
+                      ) : null}
+                    </a>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
         </section>
       ) : null}
 
@@ -2621,7 +2712,7 @@ export default function CallsignRadioLanding({
       ) : null}
 
       {FT ? (
-        <footer className="cr-foot">
+        <footer className="cr-foot" data-case={FT.headingCase === "as-written" ? "as-written" : undefined}>
           <div className="cr-foot-word" aria-hidden="true">
             <MeterWord word={masthead} redAt={redAt} lower={lower} seg={P.segment} gap={P.gap} register={register} />
           </div>
@@ -2691,10 +2782,14 @@ export default function CallsignRadioLanding({
             <span>
               © {new Date().getFullYear()} {FT.legal}
             </span>
-            <span className="cr-mono">
-              {dial ? dial + " FM, " : ""}
-              {ST.city}
-            </span>
+            {FT.legalEnd ? (
+              FT.legalEnd
+            ) : (
+              <span className="cr-mono">
+                {dial ? dial + " FM, " : ""}
+                {ST.city}
+              </span>
+            )}
           </div>
         </footer>
       ) : null}

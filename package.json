@@ -7,9 +7,11 @@
     "build": "esbuild src/main.tsx --bundle --jsx=automatic --minify --format=iife --target=es2019 --define:process.env.NODE_ENV=\\\"production\\\" --outfile=assets/spacbar.js",
     "dev": "esbuild src/main.tsx --bundle --jsx=automatic --format=iife --define:process.env.NODE_ENV=\\\"development\\\" --outfile=assets/spacbar.js --servedir=. --watch",
     "typecheck": "tsc --noEmit",
-    "podcast": "node scripts/podcast.mjs"
+    "podcast": "node scripts/podcast.mjs",
+    "instagram": "node scripts/instagram.mjs"
   },
   "dependencies": {
+    "cobe": "^2.0.1",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },

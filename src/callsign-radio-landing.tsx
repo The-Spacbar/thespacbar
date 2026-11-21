@@ -124,6 +124,12 @@ export type CallsignRadioLandingProps = {
   week?: { [weekday: string]: CrSlot[] }
   episodes?: CrEpisode[] | null
   listen?: { title?: string; ways?: CrWay[] } | null
+  /**
+   * A row of Instagram posts that scrolls past in a slow, continuous line, between the ways to
+   * tune in and the residents. `posts` are post or reel links (https://www.instagram.com/p/ABC/);
+   * each shows as Instagram's own embed. Hidden when there are no posts.
+   */
+  social?: { title?: string; text?: string; handle?: string; href?: string; cta?: string; posts?: string[] } | null
   residents?: { title?: string; text?: string } | null
   archive?: { title?: string; text?: string } | null
   support?: {
@@ -152,6 +158,10 @@ export type CallsignRadioLandingProps = {
     successText?: string
     addressTitle?: string
     legal?: string
+    /** Replaces the "98.4 FM, City" note at the end of the legal line, e.g. a flag that links somewhere. */
+    legalEnd?: React.ReactNode
+    /** "as-written" keeps the column headings in the case you typed them instead of capitals. */
+    headingCase?: "upper" | "as-written"
   } | null
   /** "night" is a club station on carbon and chalk, "daytime" a community station on signal yellow. */
   preset?: "night" | "daytime"
@@ -738,6 +748,12 @@ function pickTrack(list: CrTrack[], sync: boolean, nowMs = Date.now()) {
   return { i: 0, at: 0 }
 }
 
+/** An Instagram post or reel link to its embed page, or "" when it isn't one. */
+function igEmbed(url: string) {
+  const m = /instagram\.com\/(?:[A-Za-z0-9_.]+\/)?(p|reel|tv)\/([A-Za-z0-9_-]+)/.exec(url)
+  return m ? "https://www.instagram.com/" + m[1] + "/" + m[2] + "/embed" : ""
+}
+
 /** A video embed URL set to start on open (the click that opens it counts as the user's gesture). */
 function autoplayUrl(url: string) {
   const yt = /youtube(-nocookie)?\.com\/embed\//.test(url)
@@ -1286,6 +1302,19 @@ const CR_CSS = `
 .cr-prog i{position:absolute;inset:0;background:var(--cr-ink);transform-origin:left;transition:transform 1s linear}
 .cr-ptimes{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--cr-muted)}
 .cr-vol{display:flex;align-items:center;gap:6px;flex:none}
+.cr-foot[data-case="as-written"] h3{text-transform:none;letter-spacing:0}
+.cr-legal{align-items:center}
+.cr-sec.cr-ig{padding-left:0;padding-right:0}
+.cr-sec.cr-ig .cr-sec-h{padding:0 var(--cr-pad)}
+.cr-ig-view{overflow:hidden;margin-top:clamp(28px,3vw,44px);outline-offset:-3px}
+.cr-ig-track{display:flex;gap:16px;width:max-content;padding:0 8px;animation:cr-ig calc(var(--n) * 7s) linear infinite}
+.cr-ig-view:hover .cr-ig-track,.cr-ig-view:focus-within .cr-ig-track{animation-play-state:paused}
+.cr-ig-track[data-still]{animation:none}
+.cr-ig-view:has(.cr-ig-track[data-still]){overflow-x:auto;scroll-snap-type:x mandatory}
+.cr-ig-card{flex:none;width:326px;height:470px;border-radius:var(--cr-r);overflow:hidden;background:var(--cr-paper);box-shadow:inset 0 0 0 1px var(--cr-line);scroll-snap-align:start}
+.cr-ig-card iframe{display:block;width:100%;height:100%;border:0}
+@keyframes cr-ig{to{transform:translateX(-50%)}}
+@media (max-width:719px){.cr-ig-card{width:280px;height:420px}}
 .cr-vid{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:var(--cr-pad);background:rgba(0,0,0,.74)}
 .cr-vid-in{width:min(1120px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column;gap:14px;padding:clamp(14px,2vw,24px);border-radius:calc(var(--cr-r) * 2);background:var(--cr-ground);color:var(--cr-ink)}
 .cr-vid-h{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
@@ -1588,6 +1617,7 @@ export default function CallsignRadioLanding({
   week,
   episodes = DEFAULT_EPISODES,
   listen,
+  social,
   residents,
   archive,
   support,
@@ -2385,6 +2415,45 @@ export default function CallsignRadioLanding({
         </section>
       ) : null}
 
+      {social && social.posts && social.posts.map(igEmbed).filter(Boolean).length ? (
+        <section className="cr-sec cr-ig" aria-labelledby={uid + "-ig"}>
+          <div className="cr-sec-h cr-rv">
+            <div>
+              <h2 className="cr-h2" id={uid + "-ig"}>
+                <span className="cr-sr">{social.title || "Instagram"}</span>
+                <Glyphs text={social.title || "Instagram"} />
+              </h2>
+              {social.text ? (
+                <p className="cr-sec-t" style={{ marginTop: 14 }}>
+                  {social.text}
+                </p>
+              ) : null}
+            </div>
+            {social.href ? (
+              <a className="cr-btn cr-line" href={social.href} target="_blank" rel="noopener noreferrer">
+                {social.cta || social.handle || "Instagram"}
+                <Icon name="arrow" />
+              </a>
+            ) : null}
+          </div>
+          <div className="cr-ig-view" tabIndex={0} aria-label={"Posts from " + (social.handle || "Instagram") + ". The row moves on its own; hover or focus to pause it."}>
+            <ul className="cr-ig-track" data-still={reduced ? "" : undefined} style={{ "--n": social.posts.map(igEmbed).filter(Boolean).length } as React.CSSProperties}>
+              {[0, 1].map((copy) =>
+                social.posts!.map(igEmbed)
+                  .filter(Boolean)
+                  .map((src, i) =>
+                    copy && reduced ? null : (
+                      <li key={copy + "-" + i} className="cr-ig-card" aria-hidden={copy ? true : undefined}>
+                        <iframe src={src} title={"Instagram post " + (i + 1) + " from " + (social.handle || "Instagram")} loading="lazy" scrolling="no" tabIndex={copy ? -1 : undefined} />
+                      </li>
+                    )
+                  )
+              )}
+            </ul>
+          </div>
+        </section>
+      ) : null}
+
       {RS && residentShows.length ? (
         <section className="cr-sec cr-res" data-sec="residents" aria-labelledby={uid + "-res"} ref={resRef}>
           <div className="cr-sec-h cr-rv">
@@ -2621,7 +2690,7 @@ export default function CallsignRadioLanding({
       ) : null}
 
       {FT ? (
-        <footer className="cr-foot">
+        <footer className="cr-foot" data-case={FT.headingCase === "as-written" ? "as-written" : undefined}>
           <div className="cr-foot-word" aria-hidden="true">
             <MeterWord word={masthead} redAt={redAt} lower={lower} seg={P.segment} gap={P.gap} register={register} />
           </div>
@@ -2691,10 +2760,14 @@ export default function CallsignRadioLanding({
             <span>
               © {new Date().getFullYear()} {FT.legal}
             </span>
-            <span className="cr-mono">
-              {dial ? dial + " FM, " : ""}
-              {ST.city}
-            </span>
+            {FT.legalEnd ? (
+              FT.legalEnd
+            ) : (
+              <span className="cr-mono">
+                {dial ? dial + " FM, " : ""}
+                {ST.city}
+              </span>
+            )}
           </div>
         </footer>
       ) : null}

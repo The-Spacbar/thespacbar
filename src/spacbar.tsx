@@ -9,13 +9,43 @@ import PODCAST_SNAPSHOT from "./podcast.json"
 // project timeline) instead of taking donations. Every action that would "send"
 // something opens a pre-filled email, so nothing pretends to submit.
 
-const EMAIL = "hello@thespacbar.com"
+const EMAIL = "thespacbar@gmail.com"
 
 // The live feed is the #PLAYMRVL podcast, played back to back and joined mid-broadcast.
 // The browser reads the RSS directly (Anchor allows it), so new episodes go on air without a
 // rebuild; src/podcast.json (npm run podcast) is the fallback if the feed can't be reached.
 const PODCAST_RSS = "https://anchor.fm/s/b92db68/podcast/rss"
 const PODCAST_PAGE = "https://pca.st/kqxk"
+
+// Instagram. Instagram only lists an account's posts to signed-in visitors or through its
+// Graph API, so the carousel shows the posts linked here, each as Instagram's own embed.
+// Paste post or reel links (https://www.instagram.com/p/XXXX/), newest first; with none,
+// the row stays hidden.
+const INSTAGRAM = "https://www.instagram.com/thespacbar_za/"
+const INSTAGRAM_POSTS: string[] = []
+
+/** South Africa's flag (2:3, official colours), as tall as the red buttons, linking to Brand South Africa. */
+function SouthAfricaFlag() {
+  return (
+    <a href="https://brandsouthafrica.com" target="_blank" rel="noopener noreferrer" aria-label="South Africa, Brand South Africa (opens in a new tab)" style={{ display: "inline-flex", lineHeight: 0, borderRadius: 3, overflow: "hidden", boxShadow: "0 0 0 1px rgba(0,0,0,.12)" }}>
+      <svg viewBox="0 0 90 60" width="66" height="44" aria-hidden="true" focusable="false">
+        <defs>
+          <clipPath id="za-t">
+            <path d="M0 0l45 30L0 60z" />
+          </clipPath>
+          <clipPath id="za-f">
+            <path d="M0 0h90v60H0z" />
+          </clipPath>
+        </defs>
+        <path fill="#E03C31" d="M0 0h90v30H45z" />
+        <path fill="#001489" d="M0 60h90V30H45z" />
+        <path stroke="#FFFFFF" strokeWidth="20" fill="none" d="M90 30H45L0 0v60l45-30" clipPath="url(#za-f)" />
+        <path fill="#000000" stroke="#FFB81C" strokeWidth="20" d="M0 0l45 30L0 60" clipPath="url(#za-t)" />
+        <path stroke="#007749" strokeWidth="12" fill="none" d="M0 0l45 30h45M0 60l45-30" clipPath="url(#za-f)" />
+      </svg>
+    </a>
+  )
+}
 
 const cleanTitle = (t: string) => t.replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\s+/g, " ").trim()
 const toSeconds = (d: string) => {
@@ -177,7 +207,7 @@ const SCHEDULE = [
   { start: "22:00", show: "night" },
 ]
 
-// The portfolio, as the archive. Titles are exactly as on Behance; each tile opens its film in a
+// The portfolio, as the archive, in the same order as the Behance profile. Titles are exactly as on Behance; each tile opens its film in a
 // video window of its own (the radio player only ever plays the podcast). `date` carries the client;
 // `minutes: 0` hides a running time. One of the two African Queen Orchestra videos on Behance
 // (YouTube wCnXgzMOeKE) has been taken down, so only the one that still plays is listed.
@@ -185,6 +215,26 @@ const CDN = "https://mir-s3-cdn-cf.behance.net/projects/404/"
 const BE = "https://www.behance.net/gallery/"
 const YT = "https://www.youtube.com/embed/"
 const EPISODES = [
+  {
+    id: "nowaste",
+    show: "night",
+    title: "TheHawk - NO WASTE",
+    date: "TheHawk",
+    minutes: 0,
+    image: CDN + "466a9d244254055.Y3JvcCwyNzYxLDIxNjAsNTQwLDA.png",
+    videos: [YT + "6L1fAept2EY"],
+    href: BE + "244254055/TheHawk-NO-WASTE",
+  },
+  {
+    id: "fullhouse",
+    show: "idea",
+    title: "#ITSAFULLHOUSE | NETFLIX SUMMER",
+    date: "Netflix",
+    minutes: 0,
+    image: CDN + "dc52b2191036337.Y3JvcCwxMzgwLDEwODAsNTgsMA.jpeg",
+    videos: [YT + "w1ifw5XtOy0"],
+    href: BE + "191036337/ITSAFULLHOUSE-NETFLIX-SUMMER",
+  },
   {
     id: "kings",
     show: "set",
@@ -196,14 +246,14 @@ const EPISODES = [
     href: BE + "192548399/KINGS-OF-JOBURG-Season-2-Trailer-Netflix",
   },
   {
-    id: "fullhouse",
+    id: "summer",
     show: "idea",
-    title: "#ITSAFULLHOUSE | NETFLIX SUMMER",
+    title: "NETFLIX SUMMER",
     date: "Netflix",
     minutes: 0,
-    image: CDN + "dc52b2191036337.Y3JvcCwxMzgwLDEwODAsNTgsMA.jpeg",
-    videos: [YT + "w1ifw5XtOy0"],
-    href: BE + "191036337/ITSAFULLHOUSE-NETFLIX-SUMMER",
+    image: CDN + "3a00f4191035767.Y3JvcCw5MjAsNzIwLDIwLDA.jpg",
+    videos: [YT + "_w6oE_p3F0c"],
+    href: BE + "191035767/NETFLIX-SUMMER",
   },
   {
     id: "yfa",
@@ -234,26 +284,6 @@ const EPISODES = [
     image: CDN + "a56162151876065.Y3JvcCwxNzQwLDEzNjEsMTIwLDA.jpg",
     videos: [YT + "RolGwyD6c1k"],
     href: BE + "151876065/The-Wife-Behind-The-Veil",
-  },
-  {
-    id: "summer",
-    show: "idea",
-    title: "NETFLIX SUMMER",
-    date: "Netflix",
-    minutes: 0,
-    image: CDN + "3a00f4191035767.Y3JvcCw5MjAsNzIwLDIwLDA.jpg",
-    videos: [YT + "_w6oE_p3F0c"],
-    href: BE + "191035767/NETFLIX-SUMMER",
-  },
-  {
-    id: "nowaste",
-    show: "night",
-    title: "TheHawk - NO WASTE",
-    date: "TheHawk",
-    minutes: 0,
-    image: CDN + "466a9d244254055.Y3JvcCwyNzYxLDIxNjAsNTQwLDA.png",
-    videos: [YT + "6L1fAept2EY"],
-    href: BE + "244254055/TheHawk-NO-WASTE",
   },
 ]
 
@@ -312,11 +342,19 @@ export default function Spacbar() {
       listen={{
         title: "Tune in",
         ways: [
-          { value: "08+", unit: "Years on air", text: "Making culture-first work out of Johannesburg since 2018." },
+          { value: "09+", unit: "Years on air", text: "Making culture-first work out of Johannesburg since 2017." },
           { value: "50+", unit: "Projects delivered", text: "Trailers, campaigns, documentaries and music videos for Netflix, Showmax and more." },
           { value: "011", unit: "Studio", text: "Johannesburg, South Africa. Pull up a chair." },
           { value: "HELLO", unit: "Email", text: EMAIL, href: "mailto:" + EMAIL },
         ],
+      }}
+      social={{
+        title: "Instagram",
+        text: "On set, in the edit and everywhere in between.",
+        handle: "@thespacbar_za",
+        href: INSTAGRAM,
+        cta: "@thespacbar_za",
+        posts: INSTAGRAM_POSTS,
       }}
       residents={{
         title: "Services",
@@ -345,34 +383,35 @@ export default function Spacbar() {
         doneText: "Your email app should have opened with the details. Hit send and we will come back to you.",
       }}
       footer={{
+        // Footer labels are lower case with a full stop, like the logo; full sentences stay as sentences.
+        headingCase: "as-written",
         columns: [
           {
-            title: "Tune in",
+            title: "tune in.",
             links: [
-              { label: "On air", href: "#listen" },
-              { label: "Running order", href: "#schedule" },
-              { label: "Services", href: "#residents" },
-              { label: "Selected work", href: "#archive" },
+              { label: "on air.", href: "#listen" },
+              { label: "running order.", href: "#schedule" },
+              { label: "services.", href: "#residents" },
+              { label: "selected work.", href: "#archive" },
             ],
           },
           {
-            title: "Elsewhere",
+            title: "elsewhere.",
             links: [
-              { label: "#PLAYMRVL podcast", href: PODCAST_PAGE },
-              { label: "Behance", href: "https://www.behance.net/holasimzmrvl" },
-              { label: "Instagram", href: "https://instagram.com/simzmrvlco" },
-              { label: "Twitter", href: "https://twitter.com/HOLASIMZMRVL" },
-              { label: "YouTube", href: "https://www.youtube.com/channel/UClEk6tPYsauNfT83fTtjrEg" },
+              { label: "#playmrvl podcast.", href: PODCAST_PAGE },
+              { label: "behance.", href: "https://www.behance.net/holasimzmrvl" },
+              { label: "instagram.", href: INSTAGRAM },
             ],
           },
         ],
-        addressTitle: "Studio",
-        address: ["the spacbar.", "Johannesburg", "South Africa"],
+        addressTitle: "studio.",
+        address: ["the spacbar.", "johannesburg.", "south africa."],
         email: EMAIL,
-        newsletterTitle: "The transmission",
+        newsletterTitle: "the transmission.",
         newsletterText: "One email when new work goes to air. No spam, no static.",
         successText: "Your email app has the request. Send it and you are on the frequency.",
-        legal: "the spacbar. Production and creative agency, est. 2018.",
+        legal: "the spacbar. production and creative agency, est. 2017.",
+        legalEnd: <SouthAfricaFlag />,
       }}
       labels={{
         today: "Today at",
@@ -392,8 +431,9 @@ export default function Spacbar() {
         sending: "Opening your email",
         changeAmount: "Change the timeline",
         emptyArchive: "Nothing in this discipline yet. Pick another one.",
-        subscribe: "Tune in",
-        subscribing: "Opening your email",
+        emailLabel: "email address.",
+        subscribe: "tune in.",
+        subscribing: "opening your email.",
       }}
       onRemind={(show, start) =>
         mail("Booking the " + start + " slot: " + show.title, "Hi the spacbar.,\n\nI'd like a call at " + start + " (Johannesburg time) about " + show.host.toLowerCase() + ".\n\nProject:\nTimeline:\nBudget range:\n\nThanks,\n")

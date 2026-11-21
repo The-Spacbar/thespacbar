@@ -18,11 +18,26 @@ const EMAIL = "thespacbar@gmail.com"
 const PODCAST_RSS = "https://anchor.fm/s/b92db68/podcast/rss"
 const PODCAST_PAGE = "https://pca.st/kqxk"
 
-// Instagram. The row shows @thespacbar_za's latest posts from assets/instagram.json, which the
-// deploy workflow refreshes once a day from a Behold feed (behold.so; set its URL in
-// instagram.config.json). Visitors read that copy, not Behold, so traffic never uses up the
-// feed's monthly view allowance. With no posts the row stays hidden.
+// Instagram. Chosen by hand, newest first (Instagram only lets software read a feed for
+// Business or Creator accounts). Each post's cover image lives in assets/instagram/<code>.jpg;
+// a post shows once its image is there (image: true). With none, the row stays hidden.
 const INSTAGRAM = "https://www.instagram.com/thespacbar_za/"
+const INSTAGRAM_POSTS: { kind: "p" | "reel"; code: string; image?: boolean }[] = [
+  { kind: "reel", code: "DdB_QvWAUSC" },
+  { kind: "p", code: "Dcoj_VcEfhV" },
+  { kind: "reel", code: "DcNtYlZgL_1" },
+  { kind: "reel", code: "DbxMUz4IjE7" },
+  { kind: "reel", code: "DYzSTjjgRTx" },
+  { kind: "p", code: "DYVJETqjeZo" },
+  { kind: "reel", code: "DU8_b0ejLH8" },
+  { kind: "reel", code: "DTexn7rDOsH" },
+  { kind: "reel", code: "DTZhlSaDBwc" },
+]
+const INSTAGRAM_ITEMS = INSTAGRAM_POSTS.filter((x) => x.image).map((x) => ({
+  url: "https://www.instagram.com/" + x.kind + "/" + x.code + "/",
+  image: "assets/instagram/" + x.code + ".jpg",
+  video: x.kind === "reel",
+}))
 
 // The globe in the hero's artwork slot. It sits on the Johannesburg studio and turns to where
 // a show's work has gone: production to Lagos (Spotify Surround Sound, Live in Lagos) and
@@ -390,7 +405,8 @@ export default function Spacbar() {
       playlistSync
       preset="daytime"
       mastheadCase="lower"
-      theme="light"
+      theme="dark"
+      autoplay={3000}
       station={{
         name: "the spacbar.",
         callsign: "the spacbar",
@@ -400,11 +416,11 @@ export default function Spacbar() {
         timeZone: "Africa/Johannesburg",
       }}
       links={[
-        { label: "On air", href: "#listen" },
-        { label: "Running order", href: "#schedule" },
-        { label: "Services", href: "#residents" },
-        { label: "Work", href: "#archive" },
-        { label: "Book airtime", href: "#support" },
+        { label: "on air.", href: "#listen" },
+        { label: "running order.", href: "#schedule" },
+        { label: "services.", href: "#residents" },
+        { label: "work.", href: "#archive" },
+        { label: "book airtime.", href: "#support" },
       ]}
       memberCta="Start a project"
       shows={SHOWS}
@@ -447,7 +463,7 @@ export default function Spacbar() {
         handle: "@thespacbar_za",
         href: INSTAGRAM,
         cta: "@thespacbar_za",
-        feed: "assets/instagram.json",
+        items: INSTAGRAM_ITEMS,
       }}
       residents={{
         title: "Services",

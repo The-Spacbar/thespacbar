@@ -1,14 +1,9 @@
-# Deploys the site to GitHub Pages on every push to main, and once a day so the Instagram row
-# picks up new posts. Before uploading it refreshes assets/instagram.json from the Behold feed
-# (see instagram.config.json); if that fails, the last saved posts are deployed unchanged.
+# Deploys the site to GitHub Pages on every push to main.
 name: Deploy static content to Pages
 
 on:
   push:
     branches: ["main"]
-  schedule:
-    # 04:17 UTC = 06:17 in Johannesburg, after Behold's daily refresh
-    - cron: "17 4 * * *"
   workflow_dispatch:
 
 permissions:
@@ -30,12 +25,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Refresh Instagram posts
-        run: node scripts/instagram.mjs
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

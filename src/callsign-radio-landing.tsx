@@ -195,6 +195,12 @@ export type CallsignRadioLandingProps = {
    * instead, unless they have already pressed play or pause, are typing, or are watching a film.
    */
   autoplay?: number | false
+  /**
+   * A short station ident (audio URL) played every time the live feed starts. The feed starts
+   * underneath it, ducked, and rises to full volume as the ident ends. Where a browser does not
+   * allow volume changes (iOS), the feed stays muted under the ident instead.
+   */
+  sting?: string
   /** Hero height. A definite length, never a percentage. */
   height?: string
   className?: string
@@ -1651,6 +1657,7 @@ export default function CallsignRadioLanding({
   mastheadCase = "upper",
   heroArt,
   autoplay = false,
+  sting,
   height = "100svh",
   className,
 }: CallsignRadioLandingProps) {
@@ -1747,13 +1754,85 @@ export default function CallsignRadioLanding({
   const analysers = React.useRef(null as null | { l: AnalyserNode; r: AnalyserNode; buf: Float32Array })
   const ctxRef = React.useRef(null as AudioContext | null)
 
-  React.useEffect(() => {
+  /* ---------- volume, with ducking under the station ident ---------- */
+  const duck = React.useRef(1)
+  const volRef = React.useRef({ vol, muted })
+  volRef.current = { vol, muted }
+  const fixedVolume = React.useRef(false)
+  const applyVolume = () => {
     const a = audioRef.current
+    const { vol: v, muted: m } = volRef.current
     if (a) {
-      a.volume = vol / 100
-      a.muted = muted
+      a.volume = clamp((v / 100) * duck.current, 0, 1)
+      a.muted = m || (fixedVolume.current && duck.current < 0.999)
     }
-  }, [vol, muted])
+    const st = stingRef.current
+    if (st) {
+      st.volume = clamp(v / 100, 0, 1)
+      st.muted = m
+    }
+  }
+  React.useEffect(applyVolume, [vol, muted])
+
+  const stingRef = React.useRef(null as HTMLAudioElement | null)
+  const duckTimer = React.useRef(0)
+  React.useEffect(() => {
+    if (!sting || typeof Audio === "undefined") return
+    // iOS ignores volume changes on media elements; there the feed is muted under the ident
+    const probe = new Audio()
+    probe.volume = 0.5
+    fixedVolume.current = probe.volume !== 0.5
+    const st = new Audio(sting)
+    st.preload = "auto"
+    stingRef.current = st
+    applyVolume()
+    return () => {
+      st.pause()
+      stingRef.current = null
+      window.clearInterval(duckTimer.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sting])
+  const unduck = (ms: number) => {
+    window.clearInterval(duckTimer.current)
+    const from = duck.current
+    const t0 = Date.now()
+    duckTimer.current = window.setInterval(() => {
+      const k = ms > 0 ? Math.min(1, (Date.now() - t0) / ms) : 1
+      duck.current = from + (1 - from) * k
+      applyVolume()
+      if (k >= 1) window.clearInterval(duckTimer.current)
+    }, 40)
+  }
+  /** Play the ident over the start of the live feed. Called inside the same click as the feed's own play(). */
+  const playSting = () => {
+    const st = stingRef.current
+    if (!st) return
+    window.clearInterval(duckTimer.current)
+    duck.current = 0.18
+    applyVolume()
+    try {
+      st.currentTime = 0
+    } catch {
+      /* not loaded yet: it plays from the top anyway */
+    }
+    const done = () => {
+      st.removeEventListener("ended", done)
+      window.clearTimeout(fallback)
+      unduck(900)
+    }
+    // if "ended" never arrives (a stalled load), bring the feed up anyway
+    const fallback = window.setTimeout(done, 6000)
+    st.addEventListener("ended", done)
+    st.play().catch(done)
+  }
+  const stopSting = () => {
+    const st = stingRef.current
+    if (st && !st.paused) st.pause()
+    window.clearInterval(duckTimer.current)
+    duck.current = 1
+    applyVolume()
+  }
 
   const wireMeter = () => {
     const a = audioRef.current
@@ -1795,6 +1874,8 @@ export default function CallsignRadioLanding({
     }
     setSource(next)
     setDocked(true)
+    if (next.kind === "live") playSting()
+    else stopSting()
     const key = next.kind === "live" ? "live" : next.episode.id
     if (played.current.key !== key) played.current = { key, ms: 0, since: 0 }
     played.current.since = Date.now()
@@ -1828,6 +1909,7 @@ export default function CallsignRadioLanding({
       () => {
         if (quiet) {
           // an autoplay the browser refused: not an error, just wait for the visitor
+          stopSting()
           setStatus("idle")
           setDocked(false)
           setSaid("")
@@ -1858,6 +1940,7 @@ export default function CallsignRadioLanding({
   }
   const stop = () => {
     startedRef.current = true
+    stopSting()
     if (played.current.since) played.current.ms += Date.now() - played.current.since
     played.current.since = 0
     const a = audioRef.current

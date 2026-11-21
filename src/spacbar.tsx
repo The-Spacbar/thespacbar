@@ -177,16 +177,84 @@ const SCHEDULE = [
   { start: "22:00", show: "night" },
 ]
 
-// The portfolio, as the archive. `date` carries the client; `minutes: 0` hides a running time.
+// The portfolio, as the archive. Titles are exactly as on Behance; each tile opens its film in a
+// video window of its own (the radio player only ever plays the podcast). `date` carries the client;
+// `minutes: 0` hides a running time. One of the two African Queen Orchestra videos on Behance
+// (YouTube wCnXgzMOeKE) has been taken down, so only the one that still plays is listed.
 const CDN = "https://mir-s3-cdn-cf.behance.net/projects/404/"
+const BE = "https://www.behance.net/gallery/"
+const YT = "https://www.youtube.com/embed/"
 const EPISODES = [
-  { id: "kings", show: "set", title: "Kings of Jo'burg, season two trailer", date: "Netflix", minutes: 0, image: CDN + "7504dc192548399.Y3JvcCwxODQxLDE0NDAsMzU1LDA.jpg" },
-  { id: "fullhouse", show: "idea", title: "#itsafullhouse", date: "Netflix", minutes: 0, image: CDN + "dc52b2191036337.Y3JvcCwxMzgwLDEwODAsNTgsMA.jpeg" },
-  { id: "yfa", show: "suite", title: "Young, Famous & African, season two trailer", date: "Netflix", minutes: 0, image: CDN + "fe5c19190953063.Y3JvcCwxMTUwLDkwMCwyMjUsMA.jpg" },
-  { id: "aqo", show: "call", title: "African Queen Orchestra", date: "Netflix / Shondaland", minutes: 0, image: CDN + "f9731f191451293.Y3JvcCwxNTAwLDExNzMsMCw0ODI.jpg" },
-  { id: "wife", show: "long", title: "The Wife: Behind the Veil", date: "Showmax", minutes: 0, image: CDN + "a56162151876065.Y3JvcCwxNzQwLDEzNjEsMTIwLDA.jpg" },
-  { id: "summer", show: "idea", title: "Netflix summer campaign", date: "Netflix", minutes: 0, image: CDN + "3a00f4191035767.Y3JvcCw5MjAsNzIwLDIwLDA.jpg" },
-  { id: "nowaste", show: "night", title: "No Waste", date: "TheHawk", minutes: 0, image: CDN + "466a9d244254055.Y3JvcCwyNzYxLDIxNjAsNTQwLDA.png" },
+  {
+    id: "kings",
+    show: "set",
+    title: "KINGS OF JO'BURG | Season 2 Trailer | Netflix",
+    date: "Netflix",
+    minutes: 0,
+    image: CDN + "7504dc192548399.Y3JvcCwxODQxLDE0NDAsMzU1LDA.jpg",
+    videos: ["https://player.vimeo.com/video/797366944?h=5e995de28f"],
+    href: BE + "192548399/KINGS-OF-JOBURG-Season-2-Trailer-Netflix",
+  },
+  {
+    id: "fullhouse",
+    show: "idea",
+    title: "#ITSAFULLHOUSE | NETFLIX SUMMER",
+    date: "Netflix",
+    minutes: 0,
+    image: CDN + "dc52b2191036337.Y3JvcCwxMzgwLDEwODAsNTgsMA.jpeg",
+    videos: [YT + "w1ifw5XtOy0"],
+    href: BE + "191036337/ITSAFULLHOUSE-NETFLIX-SUMMER",
+  },
+  {
+    id: "yfa",
+    show: "suite",
+    title: "Young, Famous, & African: Season 2 | Netflix",
+    date: "Netflix",
+    minutes: 0,
+    image: CDN + "fe5c19190953063.Y3JvcCwxMTUwLDkwMCwyMjUsMA.jpg",
+    videos: [YT + "QeKsHElEPuY"],
+    href: BE + "190953063/Young-Famous-African-Season-2-Netflix",
+  },
+  {
+    id: "aqo",
+    show: "call",
+    title: "African Queen Orchestra | Queen Charlotte | Netflix",
+    date: "Netflix / Shondaland",
+    minutes: 0,
+    image: CDN + "f9731f191451293.Y3JvcCwxNTAwLDExNzMsMCw0ODI.jpg",
+    videos: [YT + "ZdjpLYAs1_M"],
+    href: BE + "191451293/African-Queen-Orchestra-Queen-Charlotte-Netflix",
+  },
+  {
+    id: "wife",
+    show: "long",
+    title: "The Wife: Behind The Veil",
+    date: "Showmax",
+    minutes: 0,
+    image: CDN + "a56162151876065.Y3JvcCwxNzQwLDEzNjEsMTIwLDA.jpg",
+    videos: [YT + "RolGwyD6c1k"],
+    href: BE + "151876065/The-Wife-Behind-The-Veil",
+  },
+  {
+    id: "summer",
+    show: "idea",
+    title: "NETFLIX SUMMER",
+    date: "Netflix",
+    minutes: 0,
+    image: CDN + "3a00f4191035767.Y3JvcCw5MjAsNzIwLDIwLDA.jpg",
+    videos: [YT + "_w6oE_p3F0c"],
+    href: BE + "191035767/NETFLIX-SUMMER",
+  },
+  {
+    id: "nowaste",
+    show: "night",
+    title: "TheHawk - NO WASTE",
+    date: "TheHawk",
+    minutes: 0,
+    image: CDN + "466a9d244254055.Y3JvcCwyNzYxLDIxNjAsNTQwLDA.png",
+    videos: [YT + "6L1fAept2EY"],
+    href: BE + "244254055/TheHawk-NO-WASTE",
+  },
 ]
 
 export default function Spacbar() {
@@ -310,11 +378,12 @@ export default function Spacbar() {
         today: "Today at",
         later: "Later at the studio",
         earlier: "Earlier at the studio",
-        listenBack: "Replay the work",
+        listenBack: "Watch the film",
         remindAt: "Book a call at",
         reminderSet: "Email drafted for",
         reminderRetry: "Try booking again",
         archive: "Work",
+        viewProject: "View on Behance",
         monthly: "Retainer",
         once: "One project",
         perMonth: "weeks, on retainer",

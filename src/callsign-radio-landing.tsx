@@ -58,6 +58,13 @@ export type CrEpisode = {
   minutes: number
   audioUrl?: string
   image?: string
+  /**
+   * Video player links (YouTube or Vimeo embed URLs). An episode with videos opens them in a
+   * video window of its own instead of the radio player, which pauses while you watch.
+   */
+  videos?: string[]
+  /** A link to the full project, offered in the video window. */
+  href?: string
 }
 
 export type CrTier = { name: string; amount: number; perks: string[] }
@@ -191,6 +198,10 @@ const DEFAULT_LABELS = {
   reminderSet: "Reminder set for",
   reminderRetry: "Try the reminder again",
   backToNow: "Back to what's on now",
+  watch: "Watch",
+  closeVideo: "Close the video",
+  viewProject: "View the project",
+  videoPart: "Video",
   wholeDay: "The whole day",
   showLess: "Show less",
   live: "Live",
@@ -725,6 +736,13 @@ function pickTrack(list: CrTrack[], sync: boolean, nowMs = Date.now()) {
     t -= lens[i]
   }
   return { i: 0, at: 0 }
+}
+
+/** A video embed URL set to start on open (the click that opens it counts as the user's gesture). */
+function autoplayUrl(url: string) {
+  const yt = /youtube(-nocookie)?\.com\/embed\//.test(url)
+  const extra = yt ? "autoplay=1&rel=0&playsinline=1" : "autoplay=1"
+  return url + (url.indexOf("?") > -1 ? "&" : "?") + extra
 }
 
 /** Seek once the file's metadata is in; before that, browsers ignore currentTime. */
@@ -1268,6 +1286,13 @@ const CR_CSS = `
 .cr-prog i{position:absolute;inset:0;background:var(--cr-ink);transform-origin:left;transition:transform 1s linear}
 .cr-ptimes{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--cr-muted)}
 .cr-vol{display:flex;align-items:center;gap:6px;flex:none}
+.cr-vid{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:var(--cr-pad);background:rgba(0,0,0,.74)}
+.cr-vid-in{width:min(1120px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column;gap:14px;padding:clamp(14px,2vw,24px);border-radius:calc(var(--cr-r) * 2);background:var(--cr-ground);color:var(--cr-ink)}
+.cr-vid-h{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.cr-vid-t{margin:4px 0 2px;font-size:clamp(18px,2.2vw,26px);line-height:1.2;font-weight:700}
+.cr-vid-frame{position:relative;aspect-ratio:16/9;overflow:hidden;border-radius:var(--cr-r);background:#000}
+.cr-vid-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.cr-vid-f{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
 .cr-iconbtn{width:40px;height:40px;display:grid;place-items:center;border-radius:var(--cr-r);color:var(--cr-ink);transition:background-color .2s var(--cr-ease)}
 @media (hover:hover){.cr-iconbtn:hover{background:var(--cr-line)}}
 .cr-range{-webkit-appearance:none;appearance:none;width:92px;height:24px;background:transparent;cursor:pointer}
@@ -1946,6 +1971,53 @@ export default function CallsignRadioLanding({
   const [genre, setGenre] = React.useState("")
   const shown = !genre || genre === T.allGenres ? eps : eps.filter((e) => showOf(e.show).genres.slice(0, 1).indexOf(genre) > -1)
 
+  /* ---------- video window: work with video plays here, apart from the radio ---------- */
+  const [video, setVideo] = React.useState(null as null | { ep: CrEpisode; i: number })
+  const videoFrom = React.useRef(null as HTMLElement | null)
+  const videoRef = React.useRef(null as HTMLDivElement | null)
+  const openVideo = (ep: CrEpisode) => {
+    videoFrom.current = typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null
+    if (playing) stop()
+    setVideo({ ep, i: 0 })
+    setSaid("Playing the video for " + ep.title)
+  }
+  const closeVideo = () => {
+    setVideo(null)
+    const back = videoFrom.current
+    if (back && typeof back.focus === "function") back.focus()
+  }
+  const playWork = (ep: CrEpisode) => (ep.videos && ep.videos.length ? openVideo(ep) : toggleEpisode(ep))
+  React.useEffect(() => {
+    if (!video) return
+    const box = videoRef.current
+    const first = box && (box.querySelector("button") as HTMLElement | null)
+    if (first) first.focus()
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeVideo()
+      if (e.key === "Tab" && box) {
+        const f = Array.from(box.querySelectorAll("a,button,iframe")) as HTMLElement[]
+        if (!f.length) return
+        const a = f[0]
+        const z = f[f.length - 1]
+        if (e.shiftKey && document.activeElement === a) {
+          e.preventDefault()
+          z.focus()
+        } else if (!e.shiftKey && document.activeElement === z) {
+          e.preventDefault()
+          a.focus()
+        }
+      }
+    }
+    document.addEventListener("keydown", key)
+    return () => {
+      document.removeEventListener("keydown", key)
+      document.body.style.overflow = prev
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [video ? video.ep.id : ""])
+
   /* ---------- support ---------- */
   const smin = SP ? SP.min : 0
   const smax = SP ? Math.max(SP.min + 1, SP.max) : 1
@@ -2182,7 +2254,7 @@ export default function CallsignRadioLanding({
                           : T.remindAt + " " + fmtMin(feat ? feat.from : 0)}
                     </button>
                   ) : featEpisode ? (
-                    <button type="button" className="cr-btn cr-line" onClick={() => toggleEpisode(featEpisode)}>
+                    <button type="button" className="cr-btn cr-line" onClick={() => playWork(featEpisode)}>
                       <Icon name={playing && source.kind === "episode" && source.episode.id === featEpisode.id ? "pause" : "play"} />
                       {T.listenBack}
                     </button>
@@ -2385,7 +2457,14 @@ export default function CallsignRadioLanding({
                 const shape = archiveShape(i, shown.length)
                 return (
                   <li className="cr-ep" key={ep.id} data-shape={shape}>
-                    <button type="button" className="cr-ep-art" onClick={() => toggleEpisode(ep)} aria-label={(on ? "Pause " : "Play ") + sh.title + ": " + ep.title} aria-pressed={on}>
+                    <button
+                      type="button"
+                      className="cr-ep-art"
+                      onClick={() => playWork(ep)}
+                      aria-label={ep.videos && ep.videos.length ? T.watch + " " + ep.title : (on ? "Pause " : "Play ") + sh.title + ": " + ep.title}
+                      aria-pressed={ep.videos && ep.videos.length ? undefined : on}
+                      aria-haspopup={ep.videos && ep.videos.length ? "dialog" : undefined}
+                    >
                       <Cover show={sh} seed={ep.id} image={ep.image || sh.image} top={shape === "wide"} />
                       <span className="cr-ep-play" data-on={on ? "" : undefined} aria-hidden="true">
                         <Icon name={on ? "pause" : "play"} />
@@ -2650,6 +2729,62 @@ export default function CallsignRadioLanding({
           {dockOn ? <DockProgress audio={audioRef} played={played} source={source} live={prog} /> : null}
         </div>
       </div>
+      {video && video.ep.videos && video.ep.videos.length ? (
+        <div
+          className="cr-vid"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={uid + "-vt"}
+          ref={videoRef}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeVideo()
+          }}
+        >
+          <div className="cr-vid-in">
+            <div className="cr-vid-h">
+              <div>
+                <span className="cr-ep-show">{showOf(video.ep.show).title}</span>
+                <h2 className="cr-vid-t" id={uid + "-vt"}>
+                  {video.ep.title}
+                </h2>
+                <span className="cr-ep-when cr-mono">{video.ep.date}</span>
+              </div>
+              <button type="button" className="cr-iconbtn" aria-label={T.closeVideo} onClick={closeVideo}>
+                <Icon name="close" />
+              </button>
+            </div>
+            <div className="cr-vid-frame">
+              <iframe
+                key={video.ep.id + video.i}
+                src={autoplayUrl(video.ep.videos[Math.min(video.i, video.ep.videos.length - 1)])}
+                title={video.ep.title + (video.ep.videos.length > 1 ? ", " + T.videoPart + " " + (video.i + 1) : "")}
+                allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+                allowFullScreen
+                referrerPolicy="strict-origin-when-cross-origin"
+              />
+            </div>
+            <div className="cr-vid-f">
+              {video.ep.videos.length > 1 ? (
+                <div className="cr-filters" role="group" aria-label="Videos in this project">
+                  {video.ep.videos.map((_, i) => (
+                    <button key={i} type="button" className="cr-chip" aria-pressed={i === video.i} onClick={() => setVideo({ ep: video.ep, i })}>
+                      {T.videoPart + " " + (i + 1)}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <span />
+              )}
+              {video.ep.href ? (
+                <a className="cr-btn cr-line" href={video.ep.href} target="_blank" rel="noopener noreferrer">
+                  {T.viewProject}
+                  <Icon name="arrow" />
+                </a>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <p className="cr-sr" aria-live="polite">
         {said}
       </p>

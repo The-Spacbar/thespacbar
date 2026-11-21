@@ -407,6 +407,7 @@ export default function Spacbar() {
       mastheadCase="lower"
       theme="dark"
       autoplay={3000}
+      sting="assets/audio/sting.mp3?v=2"
       station={{
         name: "the spacbar.",
         callsign: "the spacbar",

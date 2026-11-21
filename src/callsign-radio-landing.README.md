@@ -64,7 +64,7 @@ A stream that fails shows "The stream did not start" with a retry.
 | `shows` | `CrShow[]` | 9 shows | `{ id, title, host, genres, blurb, ink?: [a, b], art?, image?, kind?, slot?, href?, hidden? }` |
 | `schedule` | `{ start: "13:00", show: id }[]` | a full day | Each slot runs until the next one starts. |
 | `week` | `{ mon: CrSlot[], ... }` | none | Per-day running orders, picked by the station's weekday. |
-| `episodes` | `CrEpisode[] \| null` | 7 episodes | `{ id, show, title, date, minutes, audioUrl?, image? }`. `null` hides the archive. |
+| `episodes` | `CrEpisode[] \| null` | 7 episodes | `{ id, show, title, date, minutes, audioUrl?, image?, videos?, href? }`. `videos` (YouTube or Vimeo embed URLs) opens the tile in a video window of its own and pauses the radio; `href` adds a link to the full project there. `null` hides the archive. |
 | `listen` | `{ title, ways } \| null` | FM, DAB+, stream, studio line | `ways: { value, unit, text, href? }[]` |
 | `residents` | `{ title, text } \| null` | | Shows with `hidden: true` are left out. |
 | `archive` | `{ title, text } \| null` | | Genre filters come from each show's first genre. |

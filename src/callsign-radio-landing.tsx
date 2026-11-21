@@ -85,6 +85,9 @@ export type CrTokens = {
 
 export type CrSource = { kind: "live" } | { kind: "episode"; episode: CrEpisode }
 
+/** One post in the social row: where it links, its picture, and whether it is a video. */
+export type CrSocialItem = { url: string; image: string; video?: boolean; caption?: string }
+
 /** One item in the live playlist: an audio file played back to back as the station's live feed. */
 export type CrTrack = { url: string; title: string; seconds?: number; kind?: "music" | "talk" }
 
@@ -125,11 +128,12 @@ export type CallsignRadioLandingProps = {
   episodes?: CrEpisode[] | null
   listen?: { title?: string; ways?: CrWay[] } | null
   /**
-   * A row of Instagram posts that scrolls past in a slow, continuous line, between the ways to
-   * tune in and the residents. `posts` are post or reel links (https://www.instagram.com/p/ABC/);
-   * each shows as Instagram's own embed. Hidden when there are no posts.
+   * A row of social posts that scrolls past in a slow, continuous line, between the ways to tune
+   * in and the residents, under a button to the profile. Posts come from `items`, or are loaded
+   * from `feed` (a URL of JSON: an array of CrSocialItem, or { posts: [...] }). Hidden when
+   * there are none.
    */
-  social?: { title?: string; text?: string; handle?: string; href?: string; cta?: string; posts?: string[] } | null
+  social?: { handle?: string; href?: string; cta?: string; feed?: string; items?: CrSocialItem[] } | null
   residents?: { title?: string; text?: string } | null
   archive?: { title?: string; text?: string } | null
   support?: {
@@ -748,12 +752,6 @@ function pickTrack(list: CrTrack[], sync: boolean, nowMs = Date.now()) {
   return { i: 0, at: 0 }
 }
 
-/** An Instagram post or reel link to its embed page, or "" when it isn't one. */
-function igEmbed(url: string) {
-  const m = /instagram\.com\/(?:[A-Za-z0-9_.]+\/)?(p|reel|tv)\/([A-Za-z0-9_-]+)/.exec(url)
-  return m ? "https://www.instagram.com/" + m[1] + "/" + m[2] + "/embed" : ""
-}
-
 /** A video embed URL set to start on open (the click that opens it counts as the user's gesture). */
 function autoplayUrl(url: string) {
   const yt = /youtube(-nocookie)?\.com\/embed\//.test(url)
@@ -1304,17 +1302,21 @@ const CR_CSS = `
 .cr-vol{display:flex;align-items:center;gap:6px;flex:none}
 .cr-foot[data-case="as-written"] h3{text-transform:none;letter-spacing:0}
 .cr-legal{align-items:center}
-.cr-sec.cr-ig{padding-left:0;padding-right:0}
-.cr-sec.cr-ig .cr-sec-h{padding:0 var(--cr-pad)}
-.cr-ig-view{overflow:hidden;margin-top:clamp(28px,3vw,44px);outline-offset:-3px}
-.cr-ig-track{display:flex;gap:16px;width:max-content;padding:0 8px;animation:cr-ig calc(var(--n) * 7s) linear infinite}
+.cr-ig{padding:clamp(40px,5vw,72px) 0 0}
+.cr-ig-h{display:flex;justify-content:flex-end;padding:0 var(--cr-pad);margin-bottom:clamp(18px,2vw,28px)}
+.cr-ig-view{overflow:hidden}
 .cr-ig-view:hover .cr-ig-track,.cr-ig-view:focus-within .cr-ig-track{animation-play-state:paused}
-.cr-ig-track[data-still]{animation:none}
-.cr-ig-view:has(.cr-ig-track[data-still]){overflow-x:auto;scroll-snap-type:x mandatory}
-.cr-ig-card{flex:none;width:326px;height:470px;border-radius:var(--cr-r);overflow:hidden;background:var(--cr-paper);box-shadow:inset 0 0 0 1px var(--cr-line);scroll-snap-align:start}
-.cr-ig-card iframe{display:block;width:100%;height:100%;border:0}
-@keyframes cr-ig{to{transform:translateX(-50%)}}
-@media (max-width:719px){.cr-ig-card{width:280px;height:420px}}
+.cr-ig-view[data-still]{overflow-x:auto;scroll-snap-type:x mandatory}
+.cr-ig-track{display:flex;gap:16px;width:max-content;padding:0 8px;animation:cr-ig calc(var(--n) * 6s) linear infinite}
+.cr-ig-view[data-still] .cr-ig-track{animation:none;padding:0 var(--cr-pad)}
+.cr-ig-card{flex:none;width:212px;height:306px;border-radius:var(--cr-r);overflow:hidden;background:var(--cr-panel);scroll-snap-align:start}
+.cr-ig-card a{position:relative;display:block;width:100%;height:100%}
+.cr-ig-card img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .5s var(--cr-ease)}
+.cr-ig-vid{position:absolute;top:10px;right:10px;width:28px;height:28px;display:grid;place-items:center;border-radius:50%;background:rgba(0,0,0,.55);color:#fff}
+.cr-ig-vid svg{width:14px;height:14px}
+@media (hover:hover){.cr-ig-card a:hover img{transform:scale(1.04)}}
+@keyframes cr-ig{to{transform:translateX(calc(-100% / 3))}}
+@media (max-width:719px){.cr-ig-card{width:182px;height:273px}}
 .cr-vid{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:var(--cr-pad);background:rgba(0,0,0,.74)}
 .cr-vid-in{width:min(1120px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column;gap:14px;padding:clamp(14px,2vw,24px);border-radius:calc(var(--cr-r) * 2);background:var(--cr-ground);color:var(--cr-ink)}
 .cr-vid-h{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
@@ -2001,6 +2003,25 @@ export default function CallsignRadioLanding({
   const [genre, setGenre] = React.useState("")
   const shown = !genre || genre === T.allGenres ? eps : eps.filter((e) => showOf(e.show).genres.slice(0, 1).indexOf(genre) > -1)
 
+  /* ---------- social row ---------- */
+  const [socialItems, setSocialItems] = React.useState(social && social.items ? social.items : ([] as CrSocialItem[]))
+  const socialFeed = social ? social.feed || "" : ""
+  React.useEffect(() => {
+    if (!socialFeed) return
+    let live = true
+    fetch(socialFeed, { cache: "no-cache" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((data: unknown) => {
+        const list = (Array.isArray(data) ? data : data && typeof data === "object" && Array.isArray((data as { posts?: unknown }).posts) ? (data as { posts: unknown[] }).posts : []) as CrSocialItem[]
+        const ok = list.filter((x) => x && typeof x.url === "string" && typeof x.image === "string")
+        if (live && ok.length) setSocialItems(ok)
+      })
+      .catch(() => undefined)
+    return () => {
+      live = false
+    }
+  }, [socialFeed])
+
   /* ---------- video window: work with video plays here, apart from the radio ---------- */
   const [video, setVideo] = React.useState(null as null | { ep: CrEpisode; i: number })
   const videoFrom = React.useRef(null as HTMLElement | null)
@@ -2415,39 +2436,31 @@ export default function CallsignRadioLanding({
         </section>
       ) : null}
 
-      {social && social.posts && social.posts.map(igEmbed).filter(Boolean).length ? (
-        <section className="cr-sec cr-ig" aria-labelledby={uid + "-ig"}>
-          <div className="cr-sec-h cr-rv">
-            <div>
-              <h2 className="cr-h2" id={uid + "-ig"}>
-                <span className="cr-sr">{social.title || "Instagram"}</span>
-                <Glyphs text={social.title || "Instagram"} />
-              </h2>
-              {social.text ? (
-                <p className="cr-sec-t" style={{ marginTop: 14 }}>
-                  {social.text}
-                </p>
-              ) : null}
-            </div>
-            {social.href ? (
+      {social && socialItems.length ? (
+        <section className="cr-ig" aria-label={"Latest posts from " + (social.handle || "Instagram")}>
+          {social.href ? (
+            <div className="cr-ig-h">
               <a className="cr-btn cr-line" href={social.href} target="_blank" rel="noopener noreferrer">
                 {social.cta || social.handle || "Instagram"}
                 <Icon name="arrow" />
               </a>
-            ) : null}
-          </div>
-          <div className="cr-ig-view" tabIndex={0} aria-label={"Posts from " + (social.handle || "Instagram") + ". The row moves on its own; hover or focus to pause it."}>
-            <ul className="cr-ig-track" data-still={reduced ? "" : undefined} style={{ "--n": social.posts.map(igEmbed).filter(Boolean).length } as React.CSSProperties}>
-              {[0, 1].map((copy) =>
-                social.posts!.map(igEmbed)
-                  .filter(Boolean)
-                  .map((src, i) =>
-                    copy && reduced ? null : (
-                      <li key={copy + "-" + i} className="cr-ig-card" aria-hidden={copy ? true : undefined}>
-                        <iframe src={src} title={"Instagram post " + (i + 1) + " from " + (social.handle || "Instagram")} loading="lazy" scrolling="no" tabIndex={copy ? -1 : undefined} />
-                      </li>
-                    )
-                  )
+            </div>
+          ) : null}
+          <div className="cr-ig-view" data-still={reduced ? "" : undefined}>
+            <ul className="cr-ig-track" style={{ "--n": socialItems.length } as React.CSSProperties}>
+              {(reduced ? [0] : [0, 1, 2]).map((copy) =>
+                socialItems.map((it, i) => (
+                  <li key={copy + "-" + i} className="cr-ig-card" aria-hidden={copy ? true : undefined}>
+                    <a href={it.url} target="_blank" rel="noopener noreferrer" tabIndex={copy ? -1 : undefined} aria-label={(it.video ? "Video post: " : "Post: ") + (it.caption ? it.caption.slice(0, 90) : "open on Instagram")}>
+                      <img src={it.image} alt="" decoding="async" />
+                      {it.video ? (
+                        <span className="cr-ig-vid" aria-hidden="true">
+                          <Icon name="play" />
+                        </span>
+                      ) : null}
+                    </a>
+                  </li>
+                ))
               )}
             </ul>
           </div>

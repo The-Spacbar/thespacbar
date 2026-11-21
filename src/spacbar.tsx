@@ -17,12 +17,11 @@ const EMAIL = "thespacbar@gmail.com"
 const PODCAST_RSS = "https://anchor.fm/s/b92db68/podcast/rss"
 const PODCAST_PAGE = "https://pca.st/kqxk"
 
-// Instagram. Instagram only lists an account's posts to signed-in visitors or through its
-// Graph API, so the carousel shows the posts linked here, each as Instagram's own embed.
-// Paste post or reel links (https://www.instagram.com/p/XXXX/), newest first; with none,
-// the row stays hidden.
+// Instagram. The row shows @thespacbar_za's latest posts from assets/instagram.json, which the
+// deploy workflow refreshes once a day from a Behold feed (behold.so; set its URL in
+// instagram.config.json). Visitors read that copy, not Behold, so traffic never uses up the
+// feed's monthly view allowance. With no posts the row stays hidden.
 const INSTAGRAM = "https://www.instagram.com/thespacbar_za/"
-const INSTAGRAM_POSTS: string[] = []
 
 /** South Africa's flag (2:3, official colours), as tall as the red buttons, linking to Brand South Africa. */
 function SouthAfricaFlag() {
@@ -212,9 +211,23 @@ const SCHEDULE = [
 // `minutes: 0` hides a running time. One of the two African Queen Orchestra videos on Behance
 // (YouTube wCnXgzMOeKE) has been taken down, so only the one that still plays is listed.
 const CDN = "https://mir-s3-cdn-cf.behance.net/projects/404/"
+const CDN808 = "https://mir-s3-cdn-cf.behance.net/projects/max_808/"
 const BE = "https://www.behance.net/gallery/"
 const YT = "https://www.youtube.com/embed/"
 const EPISODES = [
+  {
+    id: "spotify",
+    show: "call",
+    title: "Spotify Surround Sound (Live in Lagos)",
+    date: "Spotify",
+    minutes: 0,
+    image: CDN808 + "ef43c9258473515.Y3JvcCwxMDI0LDgwMCwwLDExMQ.jpeg",
+    videos: [
+      "https://open.spotify.com/embed/episode/0jMbtQ3gxhbfVsXetjtVSq/video",
+      "https://open.spotify.com/embed/episode/24EWLDuaVagzipsN9aM2VX/video",
+    ],
+    href: BE + "258473515/Spotify-Surround-Sound-%28Live-in-Lagos%29",
+  },
   {
     id: "nowaste",
     show: "night",
@@ -285,6 +298,36 @@ const EPISODES = [
     videos: [YT + "RolGwyD6c1k"],
     href: BE + "151876065/The-Wife-Behind-The-Veil",
   },
+  {
+    id: "bbm",
+    show: "long",
+    title: "The Evolution of Black British Music",
+    date: "BET UK",
+    minutes: 0,
+    image: CDN808 + "702819151874911.Y3JvcCw4MDgsNjMyLDAsMA.png",
+    videos: [YT + "jCtDaY6Z9GM"],
+    href: BE + "151874911/The-Evolution-of-Black-British-Music",
+  },
+  {
+    id: "candid",
+    show: "night",
+    title: "MOONGA K. - CANDID EP",
+    date: "MOONGA K.",
+    minutes: 0,
+    image: CDN808 + "a958b6137550899.Y3JvcCw4MTAsNjM0LDI2NiwxNDI.png",
+    videos: [YT + "videoseries?list=PLvuKgY8z1UC1_FHPJwkoLIrDl6JrfSh3U"],
+    href: BE + "137550899/MOONGA-K-CANDID-EP",
+  },
+  {
+    id: "honeybee",
+    show: "night",
+    title: "MOONGA K. - honeybee, a Visual",
+    date: "MOONGA K.",
+    minutes: 0,
+    image: CDN808 + "54fef6137548559.Y3JvcCwxMDE3LDc5NiwyMTYsNzg.png",
+    videos: [YT + "ZJL6hSx15G0"],
+    href: BE + "137548559/MOONGA-K-honeybee-a-Visual",
+  },
 ]
 
 export default function Spacbar() {
@@ -349,12 +392,10 @@ export default function Spacbar() {
         ],
       }}
       social={{
-        title: "Instagram",
-        text: "On set, in the edit and everywhere in between.",
         handle: "@thespacbar_za",
         href: INSTAGRAM,
         cta: "@thespacbar_za",
-        posts: INSTAGRAM_POSTS,
+        feed: "assets/instagram.json",
       }}
       residents={{
         title: "Services",
@@ -362,7 +403,7 @@ export default function Spacbar() {
       }}
       archive={{
         title: "Selected work",
-        text: "Recent transmissions for Netflix, Showmax, Shondaland and TheHawk. Filter by discipline.",
+        text: "Recent transmissions for Spotify, Netflix, Showmax, BET UK and more. Filter by discipline.",
       }}
       support={{
         title: "Book airtime",
